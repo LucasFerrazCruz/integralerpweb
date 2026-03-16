@@ -96,8 +96,6 @@ export default function ProdutoForm({ produtoId }: { produtoId?: string }) {
 
   return (
     <div style={{ maxWidth: 500 }}>
-      <h1>Novo Produto</h1>
-
       <form onSubmit={salvar}>
         <div style={{ marginBottom: 10 }}>
           <Input

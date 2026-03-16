@@ -72,6 +72,7 @@ export default function CatalogoProdutosPage() {
               <div
                 key={produto.id}
                 className="border rounded-lg p-4 hover:shadow cursor-pointer"
+                onClick={() => router.push(`/catalogo/produtos/${produto.id}`)}
               >
                 {produto.imagemUrl ? (
                   <img
