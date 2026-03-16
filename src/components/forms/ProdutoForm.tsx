@@ -5,9 +5,9 @@ import { useRouter } from "next/navigation";
 import { produtoService } from "@/services/produtoService";
 import { categoriaService } from "@/services/categoriaService";
 import { Categoria } from "@/types/Categoria";
-
-import Button from "@/components/ui/Button";
-import Input from "@/components/ui/Input";
+import { Input } from "../ui/input";
+import { Button } from "../ui/button";
+import { imagemService } from "@/services/imagemService";
 
 export default function ProdutoForm({ produtoId }: { produtoId?: string }) {
   const router = useRouter();
@@ -17,6 +17,8 @@ export default function ProdutoForm({ produtoId }: { produtoId?: string }) {
   const [codigoBarras, setCodigoBarras] = useState("");
   const [estoqueMinimo, setEstoqueMinimo] = useState("");
   const [categoriaId, setCategoriaId] = useState("");
+  const [imagem, setImagem] = useState<File | null>(null);
+  const [preco, setPreco] = useState("");
 
   const [categorias, setCategorias] = useState<Categoria[]>([]);
 
@@ -26,7 +28,8 @@ export default function ProdutoForm({ produtoId }: { produtoId?: string }) {
     if (produtoId) {
       carregarProduto();
     }
-  }, []);
+    console.log("produtoId recebido:", produtoId);
+  }, [produtoId]);
 
   async function carregarCategorias() {
     const data = await categoriaService.listar();
@@ -37,15 +40,29 @@ export default function ProdutoForm({ produtoId }: { produtoId?: string }) {
   async function salvar(e: React.FormEvent) {
     e.preventDefault();
 
-    await produtoService.criar({
+    let imagemUrl = null;
+
+    if (imagem) {
+      imagemUrl = await uploadImagem();
+    }
+
+    const payload = {
       nome,
       descricao,
       codigoBarras,
       estoqueMinimo: Number(estoqueMinimo),
       categoriaId: Number(categoriaId),
-    });
+      imagemUrl,
+      preco,
+    };
 
-    router.push("/catalogo/produtos");
+    if (produtoId) {
+      await produtoService.atualizar(Number(produtoId), payload);
+    } else {
+      await produtoService.criar(payload);
+    }
+
+    router.push("/estoque/produtos");
   }
 
   async function criarCategoria() {
@@ -58,14 +75,23 @@ export default function ProdutoForm({ produtoId }: { produtoId?: string }) {
     await carregarCategorias();
   }
 
+  async function uploadImagem() {
+    if (!imagem) return null;
+
+    const url = await imagemService.upload(imagem);
+
+    return url;
+  }
+
   async function carregarProduto() {
-    const data = await produtoService.buscarPorId(produtoId);
+    const data = await produtoService.buscarPorId(Number(produtoId));
 
     setNome(data.nome);
     setDescricao(data.descricao);
     setCodigoBarras(data.codigoBarras);
-    setEstoqueMinimo(data.estoqueMinimo);
+    setEstoqueMinimo(String(data.estoqueMinimo));
     setCategoriaId(String(data.categoriaId));
+    setPreco(data.preco);
   }
 
   return (
@@ -89,6 +115,13 @@ export default function ProdutoForm({ produtoId }: { produtoId?: string }) {
           />
         </div>
 
+        <div>
+          <Input
+            type="file"
+            onChange={(e) => setImagem(e.target.files?.[0] || null)}
+          />
+        </div>
+
         <div style={{ marginBottom: 10 }}>
           <Input
             value={codigoBarras}
@@ -102,6 +135,14 @@ export default function ProdutoForm({ produtoId }: { produtoId?: string }) {
             value={estoqueMinimo}
             placeholder="Estoque mínimo"
             onChange={(e) => setEstoqueMinimo(e.target.value)}
+          />
+        </div>
+
+        <div style={{ marginBottom: 10 }}>
+          <Input
+            value={preco}
+            placeholder="Preço"
+            onChange={(e) => setPreco(e.target.value)}
           />
         </div>
 
@@ -120,11 +161,13 @@ export default function ProdutoForm({ produtoId }: { produtoId?: string }) {
           </select>
 
           <span style={{ marginLeft: 10 }}>
-            <Button onClick={criarCategoria}>+ Categoria</Button>
+            <Button type="button" onClick={criarCategoria}>
+              + Categoria
+            </Button>
           </span>
         </div>
 
-        <Button>Salvar</Button>
+        <Button> Salvar </Button>
       </form>
     </div>
   );

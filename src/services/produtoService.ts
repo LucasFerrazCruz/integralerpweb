@@ -1,13 +1,16 @@
 import { api } from "./api";
 
 export const produtoService = {
-  listar: async () => {
-    const response = await api.get("/produtos");
+  listar: async (params?: { categoria?: string | null; q?: string | null }) => {
+    const response = await api.get("/api/produtos", {
+      params,
+    });
+
     return response.data;
   },
 
   criar: async (produto: ProdutoCreateDTO) => {
-    const response = await api.post("/produtos", produto);
+    const response = await api.post("/api/produtos", produto);
     return response.data;
   },
 
@@ -32,4 +35,5 @@ export type ProdutoCreateDTO = {
   codigoBarras: string;
   estoqueMinimo: number;
   categoriaId: number;
+  imagemUrl?: string;
 };

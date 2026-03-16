@@ -6,7 +6,11 @@ export async function login(email: string, senha: string) {
     senha,
   });
 
+  console.log("LOGIN RESPONSE", response.data);
+
   const token = response.data.token;
+
+  document.cookie = `token=${token}; path=/`;
 
   localStorage.setItem("token", token);
 

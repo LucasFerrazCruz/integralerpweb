@@ -29,7 +29,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       const data = await getUsuarioLogado();
       setUsuario(data);
-    } catch {
+    } catch (err) {
+      console.error("Erro ao carregar usuário:", err);
       setUsuario(null);
     } finally {
       setLoading(false);

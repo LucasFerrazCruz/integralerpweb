@@ -2,109 +2,101 @@
 
 import { useEffect, useState } from "react";
 import { produtoService } from "@/services/produtoService";
-import { categoriaService } from "@/services/categoriaService";
-import { Produto } from "@/types/Produto";
-import Button from "@/components/ui/Button";
-import Input from "@/components/ui/Input";
-import Table from "@/components/ui/Table";
-import { useRouter } from "next/navigation";
+import { ColumnDef } from "@tanstack/react-table";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Input } from "@/components/ui/input";
 
-export default function ProdutosPage() {
+export default function CatalogoProdutosPage() {
+  const [produtos, setProdutos] = useState([]);
+
+  const searchParams = useSearchParams();
   const router = useRouter();
 
-  const [produtos, setProdutos] = useState<Produto[]>([]);
-  const [busca, setBusca] = useState("");
+  const categoria = searchParams.get("categoria");
+  const busca = searchParams.get("q");
 
   useEffect(() => {
-    carregarProdutos();
-  }, []);
+    carregar();
+  }, [categoria, busca]);
 
-  async function carregarProdutos() {
-    const data = await produtoService.listar();
+  async function carregar() {
+    const data = await produtoService.listar({
+      categoria,
+      q: busca,
+    });
 
     setProdutos(data);
   }
 
-  async function excluirProduto(id: number) {
-    if (!confirm("Deseja excluir este produto?")) return;
-
-    await produtoService.excluir(id);
-
-    carregarProdutos();
-  }
-
-  async function criarCategoria() {
-    const nome = prompt("Nome da categoria");
-
-    if (!nome) return;
-
-    await categoriaService.criar(nome);
-  }
-
-  const produtosFiltrados = produtos.filter((p) =>
-    p.nome.toLowerCase().includes(busca.toLowerCase()),
-  );
+  const columns: ColumnDef<any>[] = [
+    {
+      accessorKey: "nome",
+      header: "Produto",
+    },
+    {
+      accessorKey: "categoria",
+      header: "Categoria",
+    },
+  ];
 
   return (
-    <div style={{ padding: 20 }}>
-      <h1>Catálogo de Produtos</h1>
+    <div className="p-6">
+      <div className="grid grid-cols-5 gap-6">
+        {/* SIDEBAR */}
+        <div className="col-span-1 border rounded-lg p-4">
+          <h2 className="font-semibold mb-4">Filtros</h2>
 
-      <div style={{ marginBottom: 20 }}>
-        <Input
-          value={busca}
-          placeholder="Buscar produto..."
-          onChange={(e) => setBusca(e.target.value)}
-        />
+          <p className="text-sm text-gray-500">
+            Categoria: {categoria || "Todas"}
+          </p>
+        </div>
 
-        <span style={{ marginLeft: 10 }}>
-          <Button onClick={() => router.push("/catalogo/produtos/novo")}>
-            Novo Produto
-          </Button>
-        </span>
+        {/* PRODUTOS */}
+        <div className="col-span-4">
+          <div className="mb-4">
+            <Input
+              placeholder="Buscar produto..."
+              defaultValue={busca || ""}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  const value = (e.target as HTMLInputElement).value;
 
-        <span style={{ marginLeft: 10 }}>
-          <Button onClick={criarCategoria}>Nova Categoria</Button>
-        </span>
+                  router.push(`/catalogo/produtos?q=${value}`);
+                }
+              }}
+            />
+          </div>
+
+          <div className="grid grid-cols-4 gap-6">
+            {produtos.map((produto: any) => (
+              <div
+                key={produto.id}
+                className="border rounded-lg p-4 hover:shadow cursor-pointer"
+              >
+                {produto.imagemUrl ? (
+                  <img
+                    src={`http://localhost:8080${produto.imagemUrl}`}
+                    className="h-32 w-full object-contain mb-2"
+                  />
+                ) : (
+                  <img
+                    src="/placeholder.png"
+                    className="h-32 w-full object-contain mb-2"
+                  />
+                )}
+
+                <p className="font-medium">{produto.nome}</p>
+
+                <p className="text-sm text-gray-500">{produto.categoriaNome}</p>
+
+                <p className="font-semibold text-lg text-green-600">
+                  R$ {produto.preco?.toFixed(2)}
+                </p>
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
-
-      <Table>
-        <thead>
-          <tr>
-            <th>Produto</th>
-            <th>Categoria</th>
-            <th>Estoque</th>
-            <th>Ações</th>
-          </tr>
-        </thead>
-
-        <tbody>
-          {produtosFiltrados.map((produto) => (
-            <tr key={produto.id}>
-              <td>{produto.nome}</td>
-
-              <td>{produto.categoria?.nome || "-"}</td>
-
-              <td>{produto.estoque ?? "-"}</td>
-
-              <td>
-                <Button
-                  onClick={() =>
-                    router.push(`/catalogo/produtos/${produto.id}`)
-                  }
-                >
-                  Editar
-                </Button>
-
-                <span style={{ marginLeft: 10 }}>
-                  <Button onClick={() => excluirProduto(produto.id)}>
-                    Excluir
-                  </Button>
-                </span>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </Table>
     </div>
   );
 }

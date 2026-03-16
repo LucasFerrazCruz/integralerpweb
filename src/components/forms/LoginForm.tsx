@@ -4,6 +4,8 @@ import { useState } from "react";
 import { login } from "@/services/authService";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
+import { Button } from "../ui/button";
+import { Input } from "../ui/input";
 
 export default function LoginForm() {
   const router = useRouter();
@@ -15,6 +17,8 @@ export default function LoginForm() {
 
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault();
+
+    console.log("LOGIN SUBMIT");
 
     try {
       await login(email, senha);
@@ -28,23 +32,23 @@ export default function LoginForm() {
   }
 
   return (
-    <form onSubmit={handleLogin}>
+    <form onSubmit={handleLogin} className="space-y-4">
       <h1>Integral Service</h1>
 
-      <input
+      <Input
         placeholder="Email"
         value={email}
         onChange={(e) => setEmail(e.target.value)}
       />
 
-      <input
+      <Input
         type="password"
         placeholder="Senha"
         value={senha}
         onChange={(e) => setSenha(e.target.value)}
       />
 
-      <button type="submit">Entrar</button>
+      <Button type="submit">Entrar</Button>
 
       {erro && <p>{erro}</p>}
     </form>
