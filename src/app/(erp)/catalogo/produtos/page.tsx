@@ -5,6 +5,7 @@ import { produtoService } from "@/services/produtoService";
 import { ColumnDef } from "@tanstack/react-table";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Input } from "@/components/ui/input";
+import { AddToCartButton } from "@/components/cart/AddToCartButton";
 
 export default function CatalogoProdutosPage() {
   const [produtos, setProdutos] = useState([]);
@@ -71,28 +72,33 @@ export default function CatalogoProdutosPage() {
             {produtos.map((produto: any) => (
               <div
                 key={produto.id}
-                className="border rounded-lg p-4 hover:shadow cursor-pointer"
+                className="border rounded-x1 p-4 hover:shadow-lg transition cursor-pointer bg-white"
                 onClick={() => router.push(`/catalogo/produtos/${produto.id}`)}
               >
-                {produto.imagemUrl ? (
+                <div className="h-40 flex items-center justify-center mb-3">
                   <img
-                    src={`http://localhost:8080${produto.imagemUrl}`}
-                    className="h-32 w-full object-contain mb-2"
+                    src={
+                      produto.imagemUrl
+                        ? `http://localhost:8080${produto.imagemUrl}`
+                        : "/placeholder.png"
+                    }
+                    className="max-h-full object-contain"
                   />
-                ) : (
-                  <img
-                    src="/placeholder.png"
-                    className="h-32 w-full object-contain mb-2"
-                  />
-                )}
+                </div>
 
-                <p className="font-medium">{produto.nome}</p>
+                <p className="font-medium text-sm line-clamp-2">
+                  {produto.nome}
+                </p>
 
-                <p className="text-sm text-gray-500">{produto.categoriaNome}</p>
+                <p className="text-xs text-muted-foreground mb-2">
+                  {produto.categoriaNome}
+                </p>
 
-                <p className="font-semibold text-lg text-green-600">
+                <p className="font-semibold text-lg text-green-600 mb-3">
                   R$ {produto.preco?.toFixed(2)}
                 </p>
+
+                <AddToCartButton produtoId={produto.id} />
               </div>
             ))}
           </div>

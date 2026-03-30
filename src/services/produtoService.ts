@@ -1,12 +1,23 @@
 import { api } from "./api";
 
 export const produtoService = {
-  listar: async (params?: { categoria?: string | null; q?: string | null }) => {
-    const response = await api.get("/api/produtos", {
+  async listar(params?: {
+    centroId?: number;
+    categoria?: number;
+    incluirInativos?: boolean;
+  }) {
+    const { data } = await api.get("/api/produtos", {
       params,
     });
+    return data;
+  },
 
-    return response.data;
+  listarComEstoque(params?: {
+    centroId?: number;
+    categoriaId?: number;
+    incluirInativos?: boolean;
+  }) {
+    return api.get("/api/produtos/estoque", { params }).then((res) => res.data);
   },
 
   criar: async (produto: ProdutoCreateDTO) => {
@@ -26,6 +37,14 @@ export const produtoService = {
   buscarPorId: async (id: number) => {
     const response = await api.get(`/api/produtos/${id}`);
     return response.data;
+  },
+
+  async alternarStatus(id: number) {
+    return api.patch(`/api/produtos/${id}/status`);
+  },
+
+  async excluirDefinitivo(id: number) {
+    return api.delete(`/api/produtos/${id}/hard`);
   },
 };
 
