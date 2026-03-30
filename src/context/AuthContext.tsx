@@ -2,12 +2,7 @@
 
 import { createContext, useContext, useEffect, useState } from "react";
 import { getUsuarioLogado } from "@/services/authService";
-
-type Usuario = {
-  id: number;
-  nome: string;
-  role: string;
-};
+import { Usuario } from "@/types/Usuario";
 
 type AuthContextType = {
   usuario: Usuario | null;

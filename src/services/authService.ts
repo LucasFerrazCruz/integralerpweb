@@ -10,11 +10,17 @@ export async function login(email: string, senha: string) {
 
   const token = response.data.token;
 
-  document.cookie = `token=${token}; path=/`;
-
   localStorage.setItem("token", token);
 
   return token;
+}
+
+export async function register(nome: string, email: string, senha: string) {
+  return api.post("/auth/register", {
+    nome,
+    email,
+    senha,
+  });
 }
 
 export async function getUsuarioLogado() {
