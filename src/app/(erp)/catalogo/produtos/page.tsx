@@ -1,13 +1,13 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { produtoService } from "@/services/produtoService";
 import { ColumnDef } from "@tanstack/react-table";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Input } from "@/components/ui/input";
 import { AddToCartButton } from "@/components/cart/AddToCartButton";
 
-export default function CatalogoProdutosPage() {
+function CatalogoProdutosContent() {
   const [produtos, setProdutos] = useState([]);
 
   const searchParams = useSearchParams();
@@ -16,14 +16,16 @@ export default function CatalogoProdutosPage() {
   const categoria = searchParams.get("categoria");
   const busca = searchParams.get("q");
 
+  const [buscaInput, setBuscaInput] = useState(busca || "");
+
   useEffect(() => {
     carregar();
   }, [categoria, busca]);
 
   async function carregar() {
-    const data = await produtoService.listar({
-      categoria,
-      q: busca,
+    const data = await produtoService.listarCatalogo({
+      categoria: categoria ? Number(categoria) : undefined,
+      q: busca || undefined,
     });
 
     setProdutos(data);
@@ -57,12 +59,11 @@ export default function CatalogoProdutosPage() {
           <div className="mb-4">
             <Input
               placeholder="Buscar produto..."
-              defaultValue={busca || ""}
+              value={buscaInput}
+              onChange={(e) => setBuscaInput(e.target.value)}
               onKeyDown={(e) => {
                 if (e.key === "Enter") {
-                  const value = (e.target as HTMLInputElement).value;
-
-                  router.push(`/catalogo/produtos?q=${value}`);
+                  router.push(`/catalogo/produtos?q=${buscaInput}`);
                 }
               }}
             />
@@ -105,5 +106,13 @@ export default function CatalogoProdutosPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function CatalogoProdutosPage() {
+  return (
+    <Suspense fallback={<div className="p-6">Carregando...</div>}>
+      <CatalogoProdutosContent />
+    </Suspense>
   );
 }

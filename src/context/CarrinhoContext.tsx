@@ -5,6 +5,8 @@ import { createContext, useContext, useEffect, useState } from "react";
 
 type Item = {
   produtoId: number;
+  produtoNome: string;
+  preco: number;
   quantidade: number;
 };
 
@@ -60,14 +62,14 @@ export function CarrinhoProvider({ children }: any) {
     try {
       await carrinhoService.atualizar(produtoId, quantidade);
 
-      setCarrinho((prev: any) => {
+      setCarrinho((prev) => {
         if (!prev) return prev;
 
         const itensAtualizados = prev.itens
-          .map((item: any) =>
+          .map((item) =>
             item.produtoId === produtoId ? { ...item, quantidade } : item,
           )
-          .filter((item: any) => item.quantidade > 0);
+          .filter((item) => item.quantidade > 0);
 
         return { ...prev, itens: itensAtualizados };
       });

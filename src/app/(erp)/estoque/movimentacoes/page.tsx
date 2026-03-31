@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { produtoService } from "@/services/produtoService";
 import { movimentacaoService } from "@/services/movimentacaoService";
 
@@ -20,7 +20,7 @@ import { toast } from "sonner";
 import { useRole } from "@/hooks/useRole";
 import { useSearchParams, useRouter } from "next/navigation";
 
-export default function MovimentacoesPage() {
+function MovimentacoesContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const [produtos, setProdutos] = useState<any[]>([]);
@@ -331,5 +331,13 @@ export default function MovimentacoesPage() {
         </CardContent>
       </Card>
     </div>
+  );
+}
+
+export default function MovimentacoesPage() {
+  return (
+    <Suspense fallback={<div className="p-6">Carregando...</div>}>
+      <MovimentacoesContent />
+    </Suspense>
   );
 }

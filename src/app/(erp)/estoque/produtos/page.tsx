@@ -24,16 +24,17 @@ import {
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
+import { Centro } from "@/types/Centro";
 
 export default function ProdutosEstoquePage() {
   const [produtos, setProdutos] = useState<any[]>([]);
   const router = useRouter();
   const { isAdmin, isDistribuidor } = useRole();
 
-  const [centros, setCentros] = useState<any[]>([]);
-  const [centroSelecionado, setCentroSelecionado] = useState<number | null>(
-    null,
-  );
+  const [centros, setCentros] = useState<Centro[]>([]);
+  const [centroSelecionado, setCentroSelecionado] = useState<
+    number | undefined
+  >(undefined);
 
   const [produtoParaExcluir, setProdutoParaExcluir] = useState<any>(null);
   const [confirmacao, setConfirmacao] = useState("");
@@ -60,7 +61,7 @@ export default function ProdutosEstoquePage() {
   }, [centroSelecionado, incluirInativos, isAdmin]);
 
   async function carregar() {
-    if (isAdmin && !centroSelecionado) return;
+    if (isAdmin && centroSelecionado == null) return;
 
     const data = await produtoService.listarComEstoque({
       centroId: isAdmin ? centroSelecionado : undefined,
@@ -74,7 +75,7 @@ export default function ProdutosEstoquePage() {
   // CENTRO BASE DEFAULT
   // ======================================================
   async function carregarCentros() {
-    const data = await centroService.listar();
+    const data: Centro[] = await centroService.listar();
     setCentros(data);
 
     if (data.length > 0) {

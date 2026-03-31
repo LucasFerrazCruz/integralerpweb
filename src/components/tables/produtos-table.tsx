@@ -7,6 +7,7 @@ import {
   getPaginationRowModel,
   getSortedRowModel,
   useReactTable,
+  SortingState,
 } from "@tanstack/react-table";
 
 import { useState } from "react";
@@ -29,7 +30,7 @@ export function ProdutosTable({
   columns: ColumnDef<any>[];
   data: any[];
 }) {
-  const [sorting, setSorting] = useState([]);
+  const [sorting, setSorting] = useState<SortingState>([]);
 
   const table = useReactTable({
     data,
