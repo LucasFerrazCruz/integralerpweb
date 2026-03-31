@@ -29,6 +29,8 @@ export default function MovimentacoesPage() {
   const [movimentacoes, setMovimentacoes] = useState<any[]>([]);
   const [page, setPage] = useState(Number(searchParams.get("page") || 0));
   const [totalPages, setTotalPages] = useState(0);
+  const [dataInicio, setDataInicio] = useState("");
+  const [dataFim, setDataFim] = useState("");
 
   const [tipoFiltro, setTipoFiltro] = useState(
     searchParams.get("tipo") || "ALL",
@@ -42,23 +44,21 @@ export default function MovimentacoesPage() {
   useEffect(() => {
     const params = new URLSearchParams();
 
-    if (tipoFiltro !== "ALL") {
-      params.set("tipo", tipoFiltro);
-    }
+    if (tipoFiltro !== "ALL") params.set("tipo", tipoFiltro);
 
-    if (produtoFiltro !== "ALL") {
-      params.set("produtoId", produtoFiltro);
-    }
+    if (produtoFiltro !== "ALL") params.set("produtoId", produtoFiltro);
 
-    if (page > 0) {
-      params.set("page", page.toString());
-    }
+    if (dataInicio) params.set("dataInicio", dataInicio);
+
+    if (dataFim) params.set("dataFim", dataFim);
+
+    if (page > 0) params.set("page", page.toString());
 
     router.push(`/estoque/movimentacoes?${params.toString()}`);
 
     carregarProdutos();
     carregarMovimentacoes();
-  }, [page, tipoFiltro, produtoFiltro]);
+  }, [page, tipoFiltro, produtoFiltro, dataInicio, dataFim]);
 
   if (!isAdmin && !isDistribuidor) {
     return (
@@ -86,6 +86,8 @@ export default function MovimentacoesPage() {
           : produtoFiltro
             ? Number(produtoFiltro)
             : undefined,
+      dataInicio: dataInicio ? `${dataInicio}T00:00:00` : undefined,
+      dataFim: dataFim ? `${dataFim}T23:59:59` : undefined,
       page,
       size: 5,
     });
@@ -120,6 +122,32 @@ export default function MovimentacoesPage() {
 
   function handleProdutoChange(value: string) {
     setProdutoFiltro(value);
+    setPage(0);
+  }
+
+  function aplicarPeriodo(dias: number) {
+    const hoje = new Date();
+    const inicio = new Date();
+
+    inicio.setDate(hoje.getDate() - dias);
+
+    const format = (date: Date) => date.toISOString().slice(0, 10);
+
+    setDataInicio(format(inicio));
+    setDataFim(format(hoje));
+    setPage(0);
+  }
+
+  function aplicarHoje() {
+    const hoje = new Date().toISOString().slice(0, 10);
+    setDataInicio(hoje);
+    setDataFim(hoje);
+    setPage(0);
+  }
+
+  function limparDatas() {
+    setDataInicio("");
+    setDataFim("");
     setPage(0);
   }
 
@@ -173,14 +201,13 @@ export default function MovimentacoesPage() {
 
       <Card>
         <CardContent className="p-6 space-y-4">
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2 items-center">
             {/* TIPO */}
             <Select value={tipoFiltro} onValueChange={handleTipoChange}>
-              <SelectTrigger className="w-[200px]">
+              <SelectTrigger className="w-[180px]">
                 <SelectValue placeholder="Tipo" />
               </SelectTrigger>
               <SelectContent>
-                {/* value="" é ideal para o caso "Todos" */}
                 <SelectItem value="ALL">Todos</SelectItem>
                 <SelectItem value="ENTRADA_COMPRA">Entrada</SelectItem>
                 <SelectItem value="SAIDA_TRANSFERENCIA">Saída</SelectItem>
@@ -189,18 +216,62 @@ export default function MovimentacoesPage() {
 
             {/* PRODUTO */}
             <Select value={produtoFiltro} onValueChange={handleProdutoChange}>
-              <SelectTrigger className="w-[200px]">
+              <SelectTrigger className="w-[180px]">
                 <SelectValue placeholder="Produto" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="ALL">Todos</SelectItem>
-                {produtos.map((produto) => (
-                  <SelectItem key={produto.id} value={produto.id.toString()}>
-                    {produto.nome}
+                {produtos.map((p) => (
+                  <SelectItem key={p.id} value={p.id.toString()}>
+                    {p.nome}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
+
+            {/* DATAS */}
+            <Input
+              type="date"
+              value={dataInicio}
+              onChange={(e) => {
+                setDataInicio(e.target.value);
+                setPage(0);
+              }}
+            />
+
+            <Input
+              type="date"
+              value={dataFim}
+              onChange={(e) => {
+                setDataFim(e.target.value);
+                setPage(0);
+              }}
+            />
+
+            {/* BOTÕES RÁPIDOS */}
+            <Button variant="outline" size="sm" onClick={aplicarHoje}>
+              Hoje
+            </Button>
+
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => aplicarPeriodo(7)}
+            >
+              7 dias
+            </Button>
+
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => aplicarPeriodo(30)}
+            >
+              30 dias
+            </Button>
+
+            <Button variant="ghost" size="sm" onClick={limparDatas}>
+              Limpar
+            </Button>
           </div>
 
           <h2 className="font-semibold">Histórico de Movimentações</h2>

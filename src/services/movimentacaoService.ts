@@ -12,6 +12,8 @@ export const movimentacaoService = {
   async listar(params: {
     tipo?: string;
     produtoId?: number;
+    dataInicio?: string;
+    dataFim?: string;
     page?: number;
     size?: number;
   }) {
