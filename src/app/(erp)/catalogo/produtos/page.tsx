@@ -25,7 +25,7 @@ function CatalogoProdutosContent() {
   async function carregar() {
     const data = await produtoService.listarCatalogo({
       categoria: categoria ? Number(categoria) : undefined,
-      q: busca || undefined,
+      q: busca?.trim() ? busca : undefined,
     });
 
     setProdutos(data);
