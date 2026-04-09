@@ -5,6 +5,7 @@ import { pedidoService } from "@/services/pedidoService";
 import { Pedido } from "@/types/Pedido";
 import { Card, CardContent } from "@/components/ui/card";
 import { useRouter } from "next/navigation";
+import { statusPedidoMap } from "@/utils/pedido";
 
 export default function PedidosPage() {
   const [pedidos, setPedidos] = useState<Pedido[]>([]);
@@ -49,9 +50,13 @@ export default function PedidosPage() {
             <div>
               <p className="font-semibold">Pedido #{pedido.id}</p>
               <p className="text-sm text-muted-foreground">
-                Status: {pedido.status}
+                Status: {statusPedidoMap[pedido.status]}
               </p>
             </div>
+
+            <p className="text-xs text-muted-foreground">
+              {pedido.tipo === "MANUAL" ? "Venda manual" : "E-commerce"}
+            </p>
 
             <p className="font-bold text-green-600">
               R$ {pedido.total.toFixed(2)}

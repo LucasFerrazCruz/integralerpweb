@@ -14,6 +14,7 @@ export type Pedido = {
   frete: number;
   total: number;
   status: string;
+  tipo: string;
   enderecoEntrega: string;
   itens: PedidoItem[];
 };

@@ -10,9 +10,10 @@ import { useCarrinho } from "@/context/CarrinhoContext";
 import { pedidoService } from "@/services/pedidoService";
 
 export default function CheckoutPage() {
-  const { carrinho, loading, limparCarrinho } = useCarrinho();
+  const { carrinho, loading } = useCarrinho();
   const [endereco, setEndereco] = useState("");
   const [finalizando, setFinalizando] = useState(false);
+  const [formaPagamento, setFormaPagamento] = useState("PIX");
 
   const router = useRouter();
 
@@ -40,14 +41,12 @@ export default function CheckoutPage() {
     try {
       setFinalizando(true);
 
-      await pedidoService.criar(endereco);
+      const pedido = await pedidoService.criar({
+        enderecoEntrega: endereco,
+        formaPagamento,
+      });
 
-      // 🔥 SINCRONIZA COM BACKEND
-      await limparCarrinho();
-
-      toast.success("Pedido realizado com sucesso!");
-
-      router.push("/pedidos");
+      router.push(`/checkout/pagamento?pedidoId=${pedido.id}`);
     } catch {
       toast.error("Erro ao finalizar pedido");
     } finally {
@@ -97,6 +96,24 @@ export default function CheckoutPage() {
           />
         </CardContent>
       </Card>
+
+      {/* FORMA DE PAGAMENTO */}
+
+      <div className="space-y-2">
+        <p className="font-medium">Forma de pagamento</p>
+
+        <div className="flex gap-2">
+          {["PIX", "CARTAO", "BOLETO"].map((fp) => (
+            <Button
+              key={fp}
+              variant={formaPagamento === fp ? "default" : "outline"}
+              onClick={() => setFormaPagamento(fp)}
+            >
+              {fp}
+            </Button>
+          ))}
+        </div>
+      </div>
 
       {/* FINALIZAR */}
       <Button

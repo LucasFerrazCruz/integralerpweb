@@ -1,12 +1,19 @@
 import { api } from "./api";
 
 export const pedidoService = {
-  async criar(enderecoEntrega: string) {
-    const { data } = await api.post("/api/pedidos", {
-      enderecoEntrega,
-    });
+  async criar(data: { enderecoEntrega: string; formaPagamento: string }) {
+    const response = await api.post("api/pedidos", data);
 
-    return data;
+    return response.data;
+  },
+
+  async criarManual(data: {
+    itens: { produtoId: number; quantidade: number }[];
+    clienteNome?: string;
+    formaPagamento: string;
+  }) {
+    const response = await api.post("/api/vendas/manual", data);
+    return response.data;
   },
 
   async listar() {
