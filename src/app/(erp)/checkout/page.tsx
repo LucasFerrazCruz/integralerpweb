@@ -46,7 +46,9 @@ export default function CheckoutPage() {
         formaPagamento,
       });
 
-      router.push(`/checkout/pagamento?pedidoId=${pedido.id}`);
+      router.push(
+        `/checkout/pagamento?pedidoId=${pedido.id}&tipo=${formaPagamento}`,
+      );
     } catch {
       toast.error("Erro ao finalizar pedido");
     } finally {

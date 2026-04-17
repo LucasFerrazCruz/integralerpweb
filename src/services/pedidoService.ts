@@ -2,7 +2,7 @@ import { api } from "./api";
 
 export const pedidoService = {
   async criar(data: { enderecoEntrega: string; formaPagamento: string }) {
-    const response = await api.post("api/pedidos", data);
+    const response = await api.post("/api/pedidos", data);
 
     return response.data;
   },
