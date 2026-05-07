@@ -60,7 +60,7 @@ export default function Sidebar() {
     <aside className="w-[260px] bg-zinc-950 text-white h-screen p-4 border-zinc-800 flex flex-col">
       {/* LOGO */}
       <div className="mb-6 px-2">
-        <h2 className="text-lg font-semibold tracking-tight">Integral ERP</h2>
+        <h2 className="text-lg font-semibold tracking-tight">GR Tools</h2>
       </div>
 
       <div className="flex flex-col gap-6">

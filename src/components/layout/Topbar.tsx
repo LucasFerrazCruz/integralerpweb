@@ -6,6 +6,7 @@ import { ShoppingCart } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
+import { SearchInput } from "./SearchInput";
 
 export default function Topbar() {
   const { usuario } = useAuth();
@@ -18,32 +19,53 @@ export default function Topbar() {
   }
 
   return (
-    <div className="h-16 bg-white border-b flex items-center justify-end px-6 gap-6">
-      {/* CARRINHO */}
-      <div
-        className="relative cursor-pointer"
-        onClick={() => router.push("/catalogo/carrinho")}
-      >
-        <ShoppingCart
-          className={`w-6 h-6 transition-transform ${
-            animando ? "scale-125" : "sacle-100"
-          }`}
-        />
+    <div className="h-16 bg-white border-b flex items-center px-6">
+      {/* 1. LADO ESQUERDO (Espaço reservado para equilíbrio ou Breadcrumbs) */}
+      {/* <div className="flex-1 hidden md:block">
+        <span className="text-xs text-gray-400 font-medium uppercase tracking-widest">
+          ERP Integral
+        </span>
+      </div> */}
 
-        {quantidade > 0 && (
-          <Badge className="absolute -top-2 -right-2 bg-black text-white text-xs px-2 rounded-full">
-            {quantidade}
-          </Badge>
-        )}
+      {/* 2. CENTRO (A Busca) */}
+      <div className="flex-[2] flex justify-center">
+        <SearchInput />
       </div>
 
-      {/* USUARIO */}
-      <span className="text-sm text-gray-700">{usuario?.nome}</span>
+      {/* 3. LADO DIREITO (Ações) */}
+      <div className="flex-1 flex items-center justify-end gap-6">
+        <div
+          className="relative cursor-pointer"
+          onClick={() => router.push("/catalogo/carrinho")}
+        >
+          <ShoppingCart
+            className={`w-6 h-6 ${animando ? "scale-125" : "scale-100"}`}
+          />
+          {quantidade > 0 && (
+            <Badge className="absolute -top-2 -right-2 bg-black text-white text-[10px] px-1.5 py-0.5 rounded-full">
+              {quantidade}
+            </Badge>
+          )}
+        </div>
 
-      {/* LOGOUT */}
-      <Button variant="outline" onClick={logout}>
-        Sair
-      </Button>
+        <div className="flex flex-col items-end border-l pl-6">
+          <span className="text-sm font-bold text-gray-800 leading-none">
+            {usuario?.nome}
+          </span>
+          <span className="text-[10px] text-gray-400 uppercase">
+            Administrador
+          </span>
+        </div>
+
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={logout}
+          className="text-red-500 hover:bg-red-50"
+        >
+          Sair
+        </Button>
+      </div>
     </div>
   );
 }
