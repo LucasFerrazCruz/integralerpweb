@@ -27,6 +27,8 @@ export default function Topbar() {
         </span>
       </div> */}
 
+      {/* comentei isso só para disparar webhook do kinghost */}
+
       {/* 2. CENTRO (A Busca) */}
       <div className="flex-[2] flex justify-center">
         <SearchInput />
