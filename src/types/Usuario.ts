@@ -5,5 +5,6 @@ export interface Usuario {
   nome: string;
   email: string;
   role: Role;
+  token: string;
   centroId?: number;
 }
