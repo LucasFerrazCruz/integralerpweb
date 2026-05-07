@@ -34,4 +34,10 @@ export default function AdminPedidosPage() {
       </div>
     );
   }
+
+  return (
+    <div className="p-8 text-center">
+      <p>Carregando ou Acesso Negado.</p>
+    </div>
+  );
 }
