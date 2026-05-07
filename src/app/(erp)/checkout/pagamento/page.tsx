@@ -8,10 +8,10 @@ import { pedidoService } from "@/services/pedidoService";
 import { BoletoData } from "@/types/Pagamento";
 import { traduzirStatusMercadoPago } from "@/utils/mercadoPagoErrors";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useCallback, useEffect, useState } from "react";
+import { Suspense, useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 
-export default function PagamentoPage() {
+export function PagamentoContent() {
   const params = useSearchParams();
   const router = useRouter();
 
@@ -339,5 +339,13 @@ export default function PagamentoPage() {
         <p className="text-center animate-pulse">Gerando seu boleto...</p>
       )}
     </div>
+  );
+}
+
+export default function PagamentoPage() {
+  return (
+    <Suspense fallback={<div className="p-6">Carregando...</div>}>
+      <PagamentoPage />
+    </Suspense>
   );
 }
