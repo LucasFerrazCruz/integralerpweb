@@ -1,11 +1,14 @@
-import { useAuth } from "@/context/AuthContext";
+import { useSession } from "next-auth/react";
 
 export function useRole() {
-  const { usuario } = useAuth();
+  const { data: session, status } = useSession();
+
+  const role = (session?.user as any)?.role;
 
   return {
-    isAdmin: usuario?.role === "BASE_ADMIN",
-    isDistribuidor: usuario?.role === "DISTRIBUIDOR",
-    isCliente: usuario?.role === "CLIENTE",
+    isAdmin: role === "BASE_ADMIN",
+    isDistribuidor: role === "DISTRIBUIDOR",
+    isCliente: role === "CLIENTE",
+    status,
   };
 }

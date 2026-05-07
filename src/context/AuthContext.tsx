@@ -1,49 +1,53 @@
 "use client";
 
-import { createContext, useContext, useEffect, useState } from "react";
-import { getUsuarioLogado } from "@/services/authService";
+import { createContext, useContext, ReactNode } from "react";
 import { Usuario } from "@/types/Usuario";
+import { SessionProvider, signOut, useSession } from "next-auth/react";
 
 type AuthContextType = {
   usuario: Usuario | null;
   loading: boolean;
-  carregarUsuario: () => Promise<void>;
+  logout: () => void;
 };
 
 const AuthContext = createContext<AuthContextType>({
   usuario: null,
   loading: true,
-  carregarUsuario: async () => {},
+  logout: () => {},
 });
 
-export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [usuario, setUsuario] = useState<Usuario | null>(null);
-  const [loading, setLoading] = useState(true);
+export function AuthProvider({ children }: { children: ReactNode }) {
+  return (
+    <SessionProvider>
+      <AuthInternalProvider>{children}</AuthInternalProvider>
+    </SessionProvider>
+  );
+}
 
-  async function carregarUsuario() {
-    try {
-      const data = await getUsuarioLogado();
-      setUsuario(data);
-    } catch (err) {
-      console.error("Erro ao carregar usuário:", err);
-      setUsuario(null);
-    } finally {
-      setLoading(false);
-    }
-  }
+function AuthInternalProvider({ children }: { children: ReactNode }) {
+  const { data: session, status } = useSession();
 
-  useEffect(() => {
-    const tokenExiste = localStorage.getItem("token");
+  const usuarioFormatado = session?.user
+    ? {
+        id: session.user.id,
+        nome: session.user.name,
+        email: session.user.email,
+        token: session.accessToken,
+      }
+    : null;
 
-    if (tokenExiste) {
-      carregarUsuario();
-    } else {
-      setLoading(false);
-    }
-  }, []);
+  const logout = () => {
+    signOut({ callbackUrl: "/login" });
+  };
 
   return (
-    <AuthContext.Provider value={{ usuario, loading, carregarUsuario }}>
+    <AuthContext.Provider
+      value={{
+        usuario: usuarioFormatado,
+        loading: status === "loading",
+        logout,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );

@@ -1,18 +1,9 @@
 import { api } from "./api";
 
 export async function login(email: string, senha: string) {
-  const response = await api.post("/auth/login", {
-    email,
-    senha,
-  });
-
-  console.log("LOGIN RESPONSE", response.data);
-
-  const token = response.data.token;
-
-  localStorage.setItem("token", token);
-
-  return token;
+  const response = await api.post("/auth/login", { email, senha });
+  console.log("Resposta do Spring:", response.data);
+  return response.data;
 }
 
 export async function register(nome: string, email: string, senha: string) {
