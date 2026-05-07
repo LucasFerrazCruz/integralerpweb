@@ -22,13 +22,8 @@ const nextConfig = {
     workerThreads: false,
   },
 
-  typescript: {
-    ignoreBuildErrors: true, // Pula a checagem pesada de tipos no build
-  },
-
-  eslint: {
-    ignoreDuringBuilds: true, // Pula o lint no build
-  },
+  typescript: { ignoreBuildErrors: true },
+  eslint: { ignoreDuringBuilds: true },
 };
 
 export default nextConfig;
