@@ -1,5 +1,7 @@
-export { default } from "next-auth/middleware";
+// export { default } from "next-auth/middleware";
 
-export const config = {
-  matcher: ["/checkout/:path*", "/perfil/:path*"],
-};
+// export const config = {
+//   matcher: ["/checkout/:path*", "/perfil/:path*"],
+// };
+
+export default function middleware() {} // Deixe uma função vazia só para não dar erro de import
