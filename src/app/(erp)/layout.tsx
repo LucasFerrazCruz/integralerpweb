@@ -1,6 +1,6 @@
 "use client";
 
-import { ReactNode } from "react";
+import { ReactNode, Suspense } from "react";
 import Sidebar from "@/components/layout/Sidebar";
 import Topbar from "@/components/layout/Topbar";
 import { Toaster } from "@/components/ui/sonner";
@@ -14,7 +14,9 @@ export default function ERPLayout({ children }: { children: ReactNode }) {
         <Topbar />
 
         <main className="flex-1 overflow-y-auto">
-          <div className="p-6">{children}</div>
+          <div className="p-6">
+            <Suspense fallback={<div>Carregando...</div>}>{children}</Suspense>
+          </div>
         </main>
       </div>
 
