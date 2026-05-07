@@ -1,7 +1,13 @@
+import { Endereco } from "@/types/Endereco";
 import { api } from "./api";
 
 export const pedidoService = {
-  async criar(data: { enderecoEntrega: string; formaPagamento: string }) {
+  async criar(data: {
+    endereco: Endereco;
+    formaPagamento: string;
+    valorFrete: number;
+    transportadora: string;
+  }) {
     const response = await api.post("/api/pedidos", data);
 
     return response.data;

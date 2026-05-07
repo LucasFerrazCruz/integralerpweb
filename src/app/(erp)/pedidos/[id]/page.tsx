@@ -30,9 +30,23 @@ export default function PedidoDetalhePage() {
           <p>
             <strong>Status:</strong> {pedido.status}
           </p>
-          <p>
-            <strong>Endereço:</strong> {pedido.enderecoEntrega}
-          </p>
+
+          <div className="bg-muted p-3 rounded-lg text-sm">
+            <p className="font-bold mb-1">
+              Endereço de Entrega ({pedido.endereco.apelido})
+            </p>
+            <p>
+              {pedido.endereco.logradouro}, {pedido.endereco.numero}
+            </p>
+            {pedido.endereco.complemento && (
+              <p>{pedido.endereco.complemento}</p>
+            )}
+            <p>
+              {pedido.endereco.bairro} - {pedido.endereco.cidade}/
+              {pedido.endereco.uf}
+            </p>
+            <p className="text-muted-foreground">{pedido.endereco.cep}</p>
+          </div>
 
           <div className="border-t pt-4 space-y-2">
             {pedido.itens.map((item) => (

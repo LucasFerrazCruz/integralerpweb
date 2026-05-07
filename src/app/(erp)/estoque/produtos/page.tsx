@@ -29,7 +29,6 @@ import { Centro } from "@/types/Centro";
 export default function ProdutosEstoquePage() {
   const [produtos, setProdutos] = useState<any[]>([]);
   const router = useRouter();
-  const { isAdmin, isDistribuidor } = useRole();
 
   const [centros, setCentros] = useState<Centro[]>([]);
   const [centroSelecionado, setCentroSelecionado] = useState<
@@ -41,6 +40,49 @@ export default function ProdutosEstoquePage() {
 
   const [incluirInativos, setIncluirInativos] = useState(false);
   const [somenteBaixoEstoque, setSomenteBaixoEstoque] = useState(false);
+
+  const { isAdmin, isDistribuidor, status } = useRole();
+
+  if (status === "loading") {
+    return <div className="p-6 text-center">Carregando permissões...</div>;
+  }
+
+  if (!isAdmin && !isDistribuidor) {
+    return <div className="p-6 text-center text-red-500">Acesso negado.</div>;
+  }
+
+  async function carregar() {
+    // Se for admin, precisamos do ID. Se for distribuidor, o backend resolve sozinho.
+    const idParaEnvio = isAdmin ? centroSelecionado : undefined;
+
+    // Se for admin e ainda não temos o ID do centro, não chamamos a API ainda
+    if (isAdmin && idParaEnvio === undefined) return;
+
+    try {
+      const data = await produtoService.listarComEstoque({
+        centroId: idParaEnvio,
+        incluirInativos,
+      });
+      setProdutos(data || []);
+    } catch (error) {
+      console.error("Erro ao carregar produtos:", error);
+    }
+  }
+
+  async function carregarCentros() {
+    try {
+      const data: Centro[] = await centroService.listar();
+      setCentros(data);
+
+      if (data.length > 0) {
+        const centroBase = data.find((c) => c.tipo === "BASE");
+        const idInicial = centroBase ? centroBase.id : data[0].id;
+        setCentroSelecionado(idInicial); // Isso vai disparar o useEffect do 'carregar'
+      }
+    } catch (error) {
+      console.error("Erro ao carregar centros:", error);
+    }
+  }
 
   // ======================================================
   // LOAD CENTROS
@@ -59,35 +101,6 @@ export default function ProdutosEstoquePage() {
 
     carregar();
   }, [centroSelecionado, incluirInativos, isAdmin]);
-
-  async function carregar() {
-    if (isAdmin && centroSelecionado == null) return;
-
-    const data = await produtoService.listarComEstoque({
-      centroId: isAdmin ? centroSelecionado : undefined,
-      incluirInativos,
-    });
-
-    setProdutos(data);
-  }
-
-  // ======================================================
-  // CENTRO BASE DEFAULT
-  // ======================================================
-  async function carregarCentros() {
-    const data: Centro[] = await centroService.listar();
-    setCentros(data);
-
-    if (data.length > 0) {
-      const centroBase = data.find((c) => c.tipo === "BASE");
-
-      if (centroBase) {
-        setCentroSelecionado(centroBase.id);
-      } else {
-        setCentroSelecionado(data[0].id);
-      }
-    }
-  }
 
   // ======================================================
   // AÇÕES

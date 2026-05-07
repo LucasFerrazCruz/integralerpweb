@@ -8,12 +8,36 @@ import { Card, CardContent } from "@/components/ui/card";
 
 import { useCarrinho } from "@/context/CarrinhoContext";
 import { pedidoService } from "@/services/pedidoService";
+import { freteService } from "@/services/freteService";
+
+interface OpcaoFrete {
+  nomeServico: string;
+  valor: number;
+  prazoEntrega: number;
+  empresa: string;
+}
 
 export default function CheckoutPage() {
-  const { carrinho, loading } = useCarrinho();
-  const [endereco, setEndereco] = useState("");
+  const { carrinho, loading, limparCarrinho } = useCarrinho();
+  const [endereco, setEndereco] = useState({
+    cep: "",
+    logradouro: "",
+    numero: "",
+    complemento: "",
+    bairro: "",
+    cidade: "",
+    uf: "",
+    apelido: "Casa",
+  });
+  const [buscandoCep, setBuscandoCep] = useState(false);
   const [finalizando, setFinalizando] = useState(false);
   const [formaPagamento, setFormaPagamento] = useState("PIX");
+
+  const [opcoesFrete, setOpcoesFrete] = useState<OpcaoFrete[]>([]);
+  const [carregandoFrete, setCarregandoFrete] = useState(false);
+  const [freteSelecionado, setFreteSelecionado] = useState<OpcaoFrete | null>(
+    null,
+  );
 
   const router = useRouter();
 
@@ -32,9 +56,26 @@ export default function CheckoutPage() {
     );
   }
 
+  async function calcularFrete(cepDestino: string) {
+    try {
+      setCarregandoFrete(true);
+      setFreteSelecionado(null);
+      const dados = await freteService.calcular({ cepDestino });
+      setOpcoesFrete(dados);
+    } catch (error) {
+      toast.error("Não foi possível calcular o frete.");
+    } finally {
+      setCarregandoFrete(false);
+    }
+  }
+
   async function finalizarPedido() {
-    if (!endereco.trim()) {
-      toast.error("Informe o endereço de entrega");
+    if (!endereco.cep || !endereco.numero) {
+      toast.error("CEP e Número são obrigatórios");
+      return;
+    }
+    if (!freteSelecionado) {
+      toast.error("Selecione uma opção de frete");
       return;
     }
 
@@ -42,9 +83,15 @@ export default function CheckoutPage() {
       setFinalizando(true);
 
       const pedido = await pedidoService.criar({
-        enderecoEntrega: endereco,
+        endereco: endereco,
         formaPagamento,
+        valorFrete: freteSelecionado.valor,
+        transportadora: `${freteSelecionado.empresa} - ${freteSelecionado.nomeServico}`,
       });
+
+      if (limparCarrinho) {
+        await limparCarrinho();
+      }
 
       router.push(
         `/checkout/pagamento?pedidoId=${pedido.id}&tipo=${formaPagamento}`,
@@ -56,76 +103,261 @@ export default function CheckoutPage() {
     }
   }
 
+  const handleCepChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const cep = e.target.value.replace(/\D/g, "");
+    setEndereco({ ...endereco, cep });
+
+    if (cep.length === 8) {
+      try {
+        setBuscandoCep(true);
+        const response = await fetch(`https://viacep.com.br/ws/${cep}/json/`);
+        const data = await response.json();
+
+        if (data.erro) {
+          toast.error("CEP não encontrado.");
+          return;
+        }
+
+        setEndereco((prev) => ({
+          ...prev,
+          logradouro: data.logradouro,
+          bairro: data.bairro,
+          cidade: data.localidade,
+          uf: data.uf,
+        }));
+
+        calcularFrete(cep);
+      } catch (error) {
+        toast.error("Erro ao buscar CEP.");
+      } finally {
+        setBuscandoCep(false);
+      }
+    }
+  };
+
+  const valorTotalComFrete = carrinho.total + (freteSelecionado?.valor || 0);
+
   return (
     <div className="max-w-5xl mx-auto p-8 space-y-6">
       <h1 className="text-2xl font-bold">Checkout</h1>
 
-      {/* RESUMO */}
-      <Card>
-        <CardContent className="p-4 space-y-4">
-          {carrinho.itens.map((item) => (
-            <div key={item.produtoId} className="flex justify-between">
-              <div>
-                <p className="font-medium">{item.produtoNome}</p>
-                <p className="text-sm text-muted-foreground">
-                  {item.quantidade} x R$ {item.preco.toFixed(2)}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        {/* COLUNA ESQUERDA: ENDEREÇO E FRETE */}
+        <div className="lg:col-span-2 space-y-6">
+          <Card>
+            <CardContent className="p-4 space-y-4">
+              <h2 className="font-semibold text-lg border-b pb-2">
+                Endereço de Entrega
+              </h2>
+              <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
+                {/* CEP */}
+                <div className="md:col-span-2">
+                  <label className="text-sm font-medium">CEP</label>
+                  <input
+                    className="w-full border rounded p-2 mt-1"
+                    placeholder="00000000"
+                    maxLength={8}
+                    value={endereco.cep}
+                    onChange={handleCepChange}
+                  />
+                  {buscandoCep && (
+                    <span className="text-xs text-blue-500 animate-pulse">
+                      Buscando CEP...
+                    </span>
+                  )}
+                </div>
+
+                {/* RUA */}
+                <div className="md:col-span-4">
+                  <label className="text-sm font-medium">
+                    Logradouro / Rua
+                  </label>
+                  <input
+                    className="w-full border rounded p-2 mt-1 bg-muted"
+                    value={endereco.logradouro}
+                    readOnly
+                  />
+                </div>
+
+                {/* NÚMERO */}
+                <div className="md:col-span-2">
+                  <label className="text-sm font-medium">Número</label>
+                  <input
+                    className="w-full border rounded p-2 mt-1 border-primary"
+                    placeholder="Ex: 123"
+                    value={endereco.numero}
+                    onChange={(e) =>
+                      setEndereco({ ...endereco, numero: e.target.value })
+                    }
+                  />
+                </div>
+
+                {/* APELIDO */}
+                <div className="md:col-span-4">
+                  <label className="text-sm font-medium">
+                    Apelido (Ex: Trabalho, Casa)
+                  </label>
+                  <input
+                    className="w-full border rounded p-2 mt-1"
+                    value={endereco.apelido}
+                    onChange={(e) =>
+                      setEndereco({ ...endereco, apelido: e.target.value })
+                    }
+                  />
+                </div>
+
+                {/* COMPLEMENTO */}
+                <div className="md:col-span-3">
+                  <label className="text-sm font-medium">Complemento</label>
+                  <input
+                    className="w-full border rounded p-2 mt-1"
+                    placeholder="Apt, Bloco..."
+                    value={endereco.complemento}
+                    onChange={(e) =>
+                      setEndereco({ ...endereco, complemento: e.target.value })
+                    }
+                  />
+                </div>
+
+                {/* BAIRRO */}
+                <div className="md:col-span-3">
+                  <label className="text-sm font-medium">Bairro</label>
+                  <input
+                    className="w-full border rounded p-2 mt-1 bg-muted"
+                    value={endereco.bairro}
+                    readOnly
+                  />
+                </div>
+
+                {/* CIDADE E UF */}
+                <div className="md:col-span-4">
+                  <label className="text-sm font-medium">Cidade</label>
+                  <input
+                    className="w-full border rounded p-2 mt-1 bg-muted"
+                    value={endereco.cidade}
+                    readOnly
+                  />
+                </div>
+                <div className="md:col-span-2">
+                  <label className="text-sm font-medium">UF</label>
+                  <input
+                    className="w-full border rounded p-2 mt-1 bg-muted"
+                    value={endereco.uf}
+                    readOnly
+                  />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* SELEÇÃO FRETE */}
+          <Card>
+            <CardContent className="p-4 space-y-4">
+              <h2 className="font-semibold text-lg border-b pb-2">
+                Opções de frete
+              </h2>
+              {carregandoFrete && (
+                <p className="text-sm text-muted-foreground animate-pulse">
+                  Calculando melhores prazos...
                 </p>
+              )}
+
+              {!carregandoFrete &&
+                opcoesFrete.length === 0 &&
+                !endereco.cep && (
+                  <p className="text-sm text-muted-foreground italic">
+                    Insira o CEP para ver as opções de entrega.
+                  </p>
+                )}
+
+              <div className="space-y-2">
+                {opcoesFrete.map((op) => (
+                  <div
+                    key={`${op.empresa}-${op.nomeServico}`}
+                    onClick={() => setFreteSelecionado(op)}
+                    className={`flex items-center justify-between p-3 border rounded-lg cursor-pointer transition-all ${
+                      freteSelecionado?.nomeServico === op.nomeServico
+                        ? "border-primary bg-primary/5 ring-1 ring-primary"
+                        : "hover:bg-muted"
+                    }`}
+                  >
+                    <div className="flex flex-col">
+                      <span className="font-medium">
+                        {op.empresa} - {op.nomeServico}
+                      </span>
+                      <span className="text-xs text-muted-foreground">
+                        Prazo: até {op.prazoEntrega} dias úteis
+                      </span>
+                    </div>
+                    <span className="font-bold">R$ {op.valor.toFixed(2)}</span>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+
+          <div className="space-y-4">
+            <h2 className="font-medium text-lg">Pagamento</h2>
+            <div className="flex gap-2 flex-wrap">
+              {["PIX", "BOLETO", "CARTAO_CREDITO", "CARTAO_DEBITO"].map(
+                (fp) => (
+                  <Button
+                    key={fp}
+                    variant={formaPagamento === fp ? "default" : "outline"}
+                    onClick={() => setFormaPagamento(fp)}
+                  >
+                    {fp.replace("_", " ")}
+                  </Button>
+                ),
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* COLUNA DIREITA: RESUMO FINANCEIRO */}
+        <div className="space-y-4">
+          <Card className="sticky top-4">
+            <CardContent className="p-6 space-y-4">
+              <h2 className="font-bold text-xl border-b pb-2">Resumo</h2>
+
+              <div className="space-y-2">
+                <div className="flex justify-between text-sm">
+                  <span>Subtotal</span>
+                  <span>R$ {carrinho.total.toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span>Frete</span>
+                  <span
+                    className={
+                      freteSelecionado
+                        ? "text-green-600 font-medium"
+                        : "text-muted-foreground"
+                    }
+                  >
+                    {freteSelecionado
+                      ? `R$ ${freteSelecionado.valor.toFixed(2)}`
+                      : "Selecione o frete"}
+                  </span>
+                </div>
               </div>
 
-              <p className="font-semibold text-green-600">
-                R$ {(item.preco * item.quantidade).toFixed(2)}
-              </p>
-            </div>
-          ))}
+              <div className="border-t pt-4 flex justify-between font-bold text-xl text-primary">
+                <span>Total</span>
+                <span>R$ {valorTotalComFrete.toFixed(2)}</span>
+              </div>
 
-          <div className="border-t pt-4 flex justify-between font-bold text-lg">
-            <span>Total</span>
-            <span>R$ {carrinho.total.toFixed(2)}</span>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* ENDEREÇO */}
-      <Card>
-        <CardContent className="p-4">
-          <p className="font-medium mb-2">Endereço de entrega</p>
-
-          <textarea
-            className="w-full border rounded p-3"
-            placeholder="Digite seu endereço completo"
-            value={endereco}
-            onChange={(e) => setEndereco(e.target.value)}
-          />
-        </CardContent>
-      </Card>
-
-      {/* FORMA DE PAGAMENTO */}
-
-      <div className="space-y-2">
-        <p className="font-medium">Forma de pagamento</p>
-
-        <div className="flex gap-2">
-          {["PIX", "CARTAO", "BOLETO"].map((fp) => (
-            <Button
-              key={fp}
-              variant={formaPagamento === fp ? "default" : "outline"}
-              onClick={() => setFormaPagamento(fp)}
-            >
-              {fp}
-            </Button>
-          ))}
+              <Button
+                size="lg"
+                className="w-full mt-4"
+                disabled={finalizando || !freteSelecionado || carregandoFrete}
+                onClick={finalizarPedido}
+              >
+                {finalizando ? "Processando..." : "Confirmar e Pagar"}
+              </Button>
+            </CardContent>
+          </Card>
         </div>
       </div>
-
-      {/* FINALIZAR */}
-      <Button
-        size="lg"
-        className="w-full bg-black text-white"
-        disabled={finalizando}
-        onClick={finalizarPedido}
-      >
-        {finalizando ? "Finalizando..." : "Finalizar Pedido"}
-      </Button>
     </div>
   );
 }

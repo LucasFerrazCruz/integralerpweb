@@ -1,3 +1,4 @@
+import { BoletoData } from "@/types/Pagamento";
 import { api } from "./api";
 
 export const pagamentoService = {
@@ -11,8 +12,13 @@ export const pagamentoService = {
   },
 
   async pagarCartao(pedidoId: number, data: any) {
-    const res = await api.post(`/api/pagamentos/${pedidoId}/cartao`, data);
-    return res.data;
+    const response = await api.post(`/api/pagamentos/${pedidoId}/cartao`, data);
+    return response.data;
+  },
+
+  async gerarBoleto(pedidoId: number): Promise<BoletoData> {
+    const { data } = await api.post(`/api/pagamentos/${pedidoId}/boleto`);
+    return data;
   },
 
   async status(pedidoId: number) {

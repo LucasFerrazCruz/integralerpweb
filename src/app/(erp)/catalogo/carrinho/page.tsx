@@ -4,9 +4,10 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Trash2 } from "lucide-react";
+import { ArrowRight, Minus, Plus, ShoppingBag, Trash2 } from "lucide-react";
 import { useCarrinho } from "@/context/CarrinhoContext";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 
 export default function CarrinhoPage() {
   const router = useRouter();
@@ -24,9 +25,9 @@ export default function CarrinhoPage() {
   }
 
   async function alterarQuantidade(produtoId: number, quantidade: number) {
+    if (quantidade < 1) return;
     try {
       setItemLoading(produtoId, true);
-
       await atualizarItem(produtoId, quantidade);
     } catch {
       toast.error("Erro ao atualizar quantidade");
@@ -37,24 +38,39 @@ export default function CarrinhoPage() {
 
   async function removerItem(produtoId: number) {
     try {
+      setItemLoading(produtoId, true);
       await atualizarItem(produtoId, 0);
-      toast.success("Item removido do carrinho");
+      toast.success("Item removido");
     } catch {
       toast.error("Erro ao remover item");
+    } finally {
+      setItemLoading(produtoId, false);
     }
   }
 
   if (loading || !carrinho) {
-    return <p className="p-8">Carregando...</p>;
+    return (
+      <div className="flex flex-col items-center justify-center min-h-100">
+        <p className="text-muted-foreground animate-pulse">
+          Carregando seu carrinho...
+        </p>
+      </div>
+    );
   }
 
   if (carrinho.itens.length === 0) {
     return (
-      <div className="p-8 text-center">
-        <h1 className="text-2xl font-bold mb-4">Seu carrinho está vazio</h1>
-        <p className="text-muted-foreground">
+      <div className="p-8 text-center flex flex-col items-center justify-center min-h-100">
+        <div className="bg-gray-100 p-6 rounded-full mb-4">
+          <ShoppingBag size={48} className="text-gray-400" />
+        </div>
+        <h1 className="text-2xl font-bold mb-2">Seu carrinho está vazio</h1>
+        <p className="text-muted-foreground mb-6">
           Adicione produtos para continuar
         </p>
+        <Button onClick={() => router.push("/catalogo/produtos")}>
+          Voltar para o catálogo
+        </Button>
       </div>
     );
   }
@@ -65,75 +81,101 @@ export default function CarrinhoPage() {
   );
 
   return (
-    <div className="p-8 max-w-5xl mx-auto">
-      <h1 className="text-2xl font-bold mb-6">Carrinho</h1>
+    <div className="p-4 md:p-8 max-w-5xl mx-auto">
+      <h1 className="text-3xl font-bold mb-8 flex items-center gap-3">
+        <ShoppingBag /> Carrinho
+      </h1>
 
-      <div className="grid gap-4">
+      <div className="grid gap-6">
         {carrinho.itens.map((item: any) => (
-          <Card key={item.id}>
-            <CardContent className="flex items-center justify-between p-4 gap-4">
-              {/* IMAGEM */}
-              <img
-                src={
-                  item.imagemUrl
-                    ? `http://localhost:8080${item.imagemUrl}`
-                    : "/placeholder.png"
-                }
-                className="w-20 h-20 object-contain"
-              />
+          <Card
+            key={item.id}
+            className="overflow-hidden border-gray-100 shadow-sm"
+          >
+            <CardContent className="p-0">
+              <div className="flex flex-col sm:flex-items sm:flex-row items-center p-4 gap-6">
+                {/* IMAGEM COM SUPABASE FIX */}
+                <div className="relative w-24 h-24 bg-gray-50 rounded-lg overflow-hidden flex-shrink-0 border border-gray-100">
+                  <Image
+                    src={item.imagemUrl || "/placeholder.png"}
+                    alt={item.produtoNome}
+                    fill
+                    className="object-contain p-2"
+                  />
+                </div>
 
-              {/* INFO */}
-              <div className="flex-1">
-                <p className="font-medium">{item.produtoNome}</p>
-
-                <p className="text-sm text-muted-foreground">
-                  {item.quantidade} x R$ {item.preco.toFixed(2)}
-                </p>
-              </div>
-
-              {/* AÇÕES */}
-              <div className="flex items-center gap-4">
-                <div className="flex items-center gap-3">
-                  {/* TOTAL ITEM */}
-                  <p className="font-semibold text-green-600">
-                    R$ {(item.preco * item.quantidade).toFixed(2)}
+                {/* INFO */}
+                <div className="flex-1 text-center sm:text-left">
+                  <h3 className="font-bold text-lg text-gray-800">
+                    {item.produtoNome}
+                  </h3>
+                  <p className="text-sm text-gray-500 mb-2">
+                    Ref: {item.produtoId.toString().padStart(5, "0")}
                   </p>
+                  <p className="text-sm font-medium text-blue-600">
+                    Unitário: R${" "}
+                    {item.preco.toLocaleString("pt-BR", {
+                      minimumFractionDigits: 2,
+                    })}
+                  </p>
+                </div>
 
-                  {/* BOTÃO -*/}
-                  <Button
-                    size="icon"
-                    variant="outline"
-                    disabled={isLoading(item.produtoId)}
-                    onClick={() =>
-                      alterarQuantidade(item.produtoId, item.quantidade - 1)
-                    }
-                  >
-                    -
-                  </Button>
+                {/* CONTROLES DE QUANTIDADE */}
+                <div className="flex flex-col items-center gap-2">
+                  <div className="flex items-center border rounded-lg bg-gray-50">
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="h-8 w-8"
+                      disabled={
+                        isLoading(item.produtoId) || item.quantidade <= 1
+                      }
+                      onClick={() =>
+                        alterarQuantidade(item.produtoId, item.quantidade - 1)
+                      }
+                    >
+                      <Minus size={14} />
+                    </Button>
 
-                  <span className="w-6 text-center">{item.quantidade}</span>
+                    <span className="w-10 text-center font-semibold text-sm">
+                      {item.quantidade}
+                    </span>
 
-                  {/* BOTÃO +*/}
-                  <Button
-                    size="icon"
-                    variant="outline"
-                    disabled={isLoading(item.produtoId)}
-                    onClick={() =>
-                      alterarQuantidade(item.produtoId, item.quantidade + 1)
-                    }
-                  >
-                    +
-                  </Button>
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="h-8 w-8"
+                      disabled={isLoading(item.produtoId)}
+                      onClick={() =>
+                        alterarQuantidade(item.produtoId, item.quantidade + 1)
+                      }
+                    >
+                      <Plus size={14} />
+                    </Button>
+                  </div>
 
-                  {/* REMOVER */}
                   <Button
                     variant="ghost"
-                    size="icon"
+                    size="sm"
+                    className="text-red-500 hover:text-red-600 hover:bg-red-50 text-xs gap-1"
                     disabled={isLoading(item.produtoId)}
                     onClick={() => removerItem(item.produtoId)}
                   >
-                    <Trash2 className="w-4 h-4 text-red-500" />
+                    <Trash2 size={14} /> Remover
                   </Button>
+                </div>
+
+                {/* TOTAL ITEM */}
+                <div className="min-w-30 text-right">
+                  <p className="text-xs text-gray-400 uppercase font-bold tracking-tighter">
+                    Subtotal
+                  </p>
+                  <p className="font-bold text-xl text-green-600">
+                    R${" "}
+                    {(item.preco * item.quantidade).toLocaleString("pt-BR", {
+                      minimumFractionDigits: 2,
+                    })}
+                  </p>
                 </div>
               </div>
             </CardContent>
@@ -141,32 +183,35 @@ export default function CarrinhoPage() {
         ))}
       </div>
 
-      {/* TOTAL */}
-      <div className="mt-8 flex justify-between items-center border-t pt-6">
-        <p className="text-lg font-semibold">Total</p>
+      {/* RESUMO DO PEDIDO */}
+      <Card className="mt-10 border-t-4 border-t-black">
+        <CardContent className="p-6">
+          <div className="flex justify-between items-center mb-6">
+            <div>
+              <p className="text-gray-500 uppercase text-xs font-bold tracking-widest">
+                Total do Pedido
+              </p>
+              <p className="text-3xl font-black text-gray-900">
+                R$ {total.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+              </p>
+            </div>
 
-        <p className="text-2xl font-bold text-green-600">
-          R$ {total.toFixed(2)}
-        </p>
-      </div>
-
-      {/* BOTÃO FINALIZAR */}
-      <div className="mt-6 flex justify-end">
-        <Button
-          size="lg"
-          className="bg-black text-white"
-          onClick={() => {
-            if (!carrinho.itens.length) {
-              toast.error("Carrinho vazio");
-              return;
-            }
-
-            router.push("/checkout");
-          }}
-        >
-          Finalizar pedido
-        </Button>
-      </div>
+            <Button
+              size="lg"
+              className="bg-black hover:bg-gray-800 text-white px-10 gap-2 h-14 text-lg"
+              onClick={() => {
+                if (!carrinho.itens.length) return;
+                router.push("/checkout");
+              }}
+            >
+              Finalizar Compra <ArrowRight size={20} />
+            </Button>
+          </div>
+          <p className="text-xs text-gray-400 text-center sm:text-left">
+            * Impostos e frete serão calculados na próxima etapa.
+          </p>
+        </CardContent>
+      </Card>
     </div>
   );
 }

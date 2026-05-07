@@ -1,3 +1,5 @@
+import { Endereco } from "./Endereco";
+
 export type PedidoItem = {
   id: number;
   produtoId: number;
@@ -15,6 +17,6 @@ export type Pedido = {
   total: number;
   status: string;
   tipo: string;
-  enderecoEntrega: string;
+  endereco: Endereco;
   itens: PedidoItem[];
 };
