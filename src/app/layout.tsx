@@ -5,6 +5,9 @@ import { AuthProvider } from "@/context/AuthContext";
 import { CarrinhoProvider } from "@/context/CarrinhoContext";
 import Script from "next/script";
 
+export const dynamic = "force-dynamic";
+export const fetchCache = "force-no-store";
+
 const geistSans = Geist({
   variable: "--font-geist-sans",
   subsets: ["latin"],
