@@ -61,5 +61,5 @@ export type ProdutoCreateDTO = {
   codigoBarras: string;
   estoqueMinimo: number;
   categoriaId: number;
-  imagemUrl?: string;
+  imagemUrl?: string | null;
 };

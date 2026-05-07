@@ -129,10 +129,15 @@ export default function ProdutoForm({ produtoId }: { produtoId?: string }) {
         diametro: Number(diametro),
       };
 
+      const payloadFormatado = {
+        ...payload,
+        imagemUrl: payload.imagemUrl ?? undefined,
+      };
+
       if (produtoId) {
-        await produtoService.atualizar(Number(produtoId), payload);
+        await produtoService.atualizar(Number(produtoId), payloadFormatado);
       } else {
-        await produtoService.criar(payload);
+        await produtoService.criar(payloadFormatado);
       }
 
       router.push("/estoque/produtos");
