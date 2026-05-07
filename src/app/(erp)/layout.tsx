@@ -8,7 +8,9 @@ import { Toaster } from "@/components/ui/sonner";
 export default function ERPLayout({ children }: { children: ReactNode }) {
   return (
     <div className="flex h-screen bg-gray-50">
-      <Sidebar />
+      <Suspense fallback={<div className="w-64 bg-white border-r" />}>
+        <Sidebar />
+      </Suspense>
 
       <div className="flex flex-1 flex-col overflow-hidden">
         <Topbar />
