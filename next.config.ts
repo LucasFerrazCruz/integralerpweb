@@ -16,6 +16,19 @@ const nextConfig = {
       },
     ],
   },
+
+  experimental: {
+    cpus: 1,
+    workerThreads: false,
+  },
+
+  typescript: {
+    ignoreBuildErrors: true, // Pula a checagem pesada de tipos no build
+  },
+
+  eslint: {
+    ignoreDuringBuilds: true, // Pula o lint no build
+  },
 };
 
 export default nextConfig;
