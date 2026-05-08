@@ -47,9 +47,9 @@ export default function ProdutosEstoquePage() {
     return <div className="p-6 text-center">Carregando permissões...</div>;
   }
 
-  if (!isAdmin && !isDistribuidor) {
-    return <div className="p-6 text-center text-red-500">Acesso negado.</div>;
-  }
+  // if (!isAdmin && !isDistribuidor) {
+  //   return <div className="p-6 text-center text-red-500">Acesso negado.</div>;
+  // }
 
   async function carregar() {
     // Se for admin, precisamos do ID. Se for distribuidor, o backend resolve sozinho.
