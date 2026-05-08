@@ -18,9 +18,13 @@ const handler = NextAuth({
       async authorize(credentials) {
         if (!credentials?.email || !credentials?.senha) return null;
 
+        // LOG DE AUDITORIA
+        console.log("Tentando login para:", credentials.email);
+        console.log("Usando API_URL:", process.env.NEXT_PUBLIC_API_URL);
+
         try {
           const data = await login(credentials.email, credentials.senha);
-          console.log("Dados do Backend:", data);
+          console.log("Resposta do Backend (Sucesso):", data);
 
           if (data && data.token) {
             return {
@@ -33,8 +37,11 @@ const handler = NextAuth({
           }
 
           return null;
-        } catch (error) {
-          console.error("Erro no authorize:", error);
+        } catch (error: any) {
+          // LOG DETALHADO DO ERRO
+          console.error("ERRO NO AUTHORIZE!");
+          console.error("Status do Erro:", error.response?.status);
+          console.error("Corpo do Erro do Backend:", error.response?.data);
           return null;
         }
       },
