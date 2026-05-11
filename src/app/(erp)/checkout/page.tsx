@@ -85,7 +85,8 @@ export default function CheckoutPage() {
       const pedido = await pedidoService.criar({
         endereco: endereco,
         formaPagamento,
-        valorFrete: freteSelecionado.valor,
+        // valorFrete: freteSelecionado.valor,
+        valorFrete: 0,
         transportadora: `${freteSelecionado.empresa} - ${freteSelecionado.nomeServico}`,
       });
 
