@@ -182,19 +182,19 @@ export default function ProdutoPage() {
             {Number(produto.largura) > 0 && (
               <li className="flex justify-between border-b pb-1">
                 <span className="text-gray-500">Largura</span>
-                <span className="font-medium">{produto.largura} kg</span>
+                <span className="font-medium">{produto.largura} cm</span>
               </li>
             )}
             {Number(produto.altura) > 0 && (
               <li className="flex justify-between border-b pb-1">
                 <span className="text-gray-500">Altura</span>
-                <span className="font-medium">{produto.altura} kg</span>
+                <span className="font-medium">{produto.altura} cm</span>
               </li>
             )}
             {Number(produto.comprimento) > 0 && (
               <li className="flex justify-between border-b pb-1">
                 <span className="text-gray-500">Comprimento</span>
-                <span className="font-medium">{produto.comprimento} kg</span>
+                <span className="font-medium">{produto.comprimento} cm</span>
               </li>
             )}
           </ul>
