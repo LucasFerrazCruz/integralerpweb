@@ -38,6 +38,10 @@ export default function CheckoutPage() {
   const [freteSelecionado, setFreteSelecionado] = useState<OpcaoFrete | null>(
     null,
   );
+  const [dadosPagador, setDadosPagador] = useState({
+    cpfCnpj: "",
+    email: "",
+  });
 
   const router = useRouter();
 
@@ -94,9 +98,14 @@ export default function CheckoutPage() {
         await limparCarrinho();
       }
 
-      router.push(
-        `/checkout/pagamento?pedidoId=${pedido.id}&tipo=${formaPagamento}`,
-      );
+      const params = new URLSearchParams({
+        pedidoId: pedido.id.toString(),
+        tipo: formaPagamento,
+        email: dadosPagador.email, // Passando o e-mail digitado
+        cpf: dadosPagador.cpfCnpj, // Passando o CPF digitado
+      });
+
+      router.push(`/checkout/pagamento?${params.toString()}`);
     } catch {
       toast.error("Erro ao finalizar pedido");
     } finally {
@@ -346,6 +355,56 @@ export default function CheckoutPage() {
                 <span>Total</span>
                 <span>R$ {valorTotalComFrete.toFixed(2)}</span>
               </div>
+
+              {formaPagamento === "PIX" && (
+                <Card className="mt-4 border-blue-200 bg-blue-50/30">
+                  <CardContent className="p-4 space-y-4">
+                    <h3 className="font-semibold text-sm text-blue-800 uppercase tracking-wider">
+                      Informações para o QR Code
+                    </h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-1">
+                        <label className="text-xs font-bold text-muted-foreground uppercase">
+                          E-mail do Pagador
+                        </label>
+                        <input
+                          type="email"
+                          className="w-full border rounded-md p-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                          placeholder="Para onde enviar o comprovante"
+                          value={dadosPagador.email}
+                          onChange={(e) =>
+                            setDadosPagador({
+                              ...dadosPagador,
+                              email: e.target.value,
+                            })
+                          }
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-xs font-bold text-muted-foreground uppercase">
+                          CPF ou CNPJ
+                        </label>
+                        <input
+                          type="text"
+                          className="w-full border rounded-md p-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                          placeholder="000.000.000-00"
+                          value={dadosPagador.cpfCnpj}
+                          onChange={(e) =>
+                            setDadosPagador({
+                              ...dadosPagador,
+                              cpfCnpj: e.target.value.replace(/\D/g, ""),
+                            })
+                          }
+                        />
+                      </div>
+                    </div>
+                    <p className="text-[10px] text-blue-600/70 italic">
+                      * Estes dados são necessários para a emissão do título de
+                      pagamento pelo Mercado Pago.
+                    </p>
+                  </CardContent>
+                </Card>
+              )}
 
               <Button
                 size="lg"

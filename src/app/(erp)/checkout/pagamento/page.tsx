@@ -8,7 +8,7 @@ import { pedidoService } from "@/services/pedidoService";
 import { BoletoData } from "@/types/Pagamento";
 import { traduzirStatusMercadoPago } from "@/utils/mercadoPagoErrors";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Suspense, useCallback, useEffect, useState } from "react";
+import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
 export function PagamentoContent() {
@@ -18,6 +18,9 @@ export function PagamentoContent() {
   const pedidoId = params.get("pedidoId");
   const tipo = params.get("tipo");
 
+  const email = params.get("email") || "";
+  const cpf = params.get("cpf") || "";
+
   const [pix, setPix] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const [totalPedido, setTotalPedido] = useState(0);
@@ -25,6 +28,8 @@ export function PagamentoContent() {
   const [tempoRestante, setTempoRestante] = useState<string>("");
   const [boleto, setBoleto] = useState<BoletoData | null>(null);
   const [boletoCarregado, setBoletoCarregado] = useState(false);
+
+  const carregandoPixRef = useRef(false); // Trava síncrona
 
   console.log("Tipo atual:", tipo);
 
@@ -53,12 +58,17 @@ export function PagamentoContent() {
 
   // pix
   useEffect(() => {
-    if (!pedidoId || tipo != "PIX" || pixCarregado) return;
+    if (!pedidoId || tipo != "PIX" || pixCarregado || carregandoPixRef.current)
+      return;
 
     async function carregarPix() {
       try {
+        carregandoPixRef.current = true; // Bloqueia imediatamente o próximo ciclo
         setPixCarregado(true);
-        const data = await pagamentoService.gerarPix(Number(pedidoId));
+        const data = await pagamentoService.gerarPix(Number(pedidoId), {
+          emailPagador: email,
+          cpfPagador: cpf,
+        });
 
         if (data.qrCode) {
           setPix(data);
@@ -76,7 +86,8 @@ export function PagamentoContent() {
 
   // STATUS (PIX polling)
   useEffect(() => {
-    if (!pedidoId || tipo != "PIX" || tempoRestante === "Expirado") return;
+    if (!pedidoId || tipo !== "PIX" || !pix || tempoRestante === "Expirado")
+      return;
 
     const interval = setInterval(async () => {
       try {
@@ -98,7 +109,7 @@ export function PagamentoContent() {
     }, 5000);
 
     return () => clearInterval(interval);
-  }, [pedidoId, tipo, router, tempoRestante]);
+  }, [pedidoId, tipo, router, tempoRestante, pix]);
 
   useEffect(() => {
     if (!pix?.dataExpiracao) return;
@@ -345,7 +356,7 @@ export function PagamentoContent() {
 export default function PagamentoPage() {
   return (
     <Suspense fallback={<div className="p-6">Carregando...</div>}>
-      <PagamentoPage />
+      <PagamentoContent />
     </Suspense>
   );
 }
