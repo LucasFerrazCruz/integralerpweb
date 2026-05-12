@@ -119,8 +119,7 @@ export default function CartaoBrick({
     if (!(window as any).MercadoPago) return;
 
     const mp = new (window as any).MercadoPago(
-      "TEST-e115bf5b-1fa7-4805-a981-eab3ee530ddc",
-
+      process.env.NEXT_PUBLIC_MP_PUBLIC_KEY,
       {
         locale: "pt-BR",
       },
