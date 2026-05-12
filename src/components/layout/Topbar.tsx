@@ -55,7 +55,7 @@ export default function Topbar() {
             {usuario?.nome}
           </span>
           <span className="text-[10px] text-gray-400 uppercase">
-            Administrador
+            {usuario?.role}
           </span>
         </div>
 
