@@ -9,7 +9,6 @@ export default async function EditarProdutoPage({
 
   return (
     <div>
-      <h1>Editar Produto</h1>
       <ProdutoForm produtoId={id} />
     </div>
   );

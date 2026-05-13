@@ -4,7 +4,6 @@ import { Suspense, useEffect, useState } from "react";
 import { produtoService } from "@/services/produtoService";
 import { ColumnDef } from "@tanstack/react-table";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Input } from "@/components/ui/input";
 import { AddToCartButton } from "@/components/cart/AddToCartButton";
 import Image from "next/image";
 import ProdutoSkeleton from "@/components/skeleton/ProdutoSkeleton";
@@ -74,56 +73,90 @@ function CatalogoProdutosContent() {
               ? Array.from({ length: 8 }).map((_, i) => (
                   <ProdutoSkeleton key={i} />
                 ))
-              : produtos.map((produto: any) => (
-                  <div
-                    key={produto.id}
-                    className="group border rounded-xl p-4 hover:shadow-xl transition-all duration-300 cursor-pointer bg-white flex flex-col justify-between"
-                    onClick={() =>
-                      router.push(`/catalogo/produtos/${produto.id}`)
-                    }
-                  >
-                    <div>
-                      {/* CONTAINER DA IMAGEM */}
-                      <div className="h-44 flex items-center justify-center mb-4 bg-gray-100 rounded-lg overflow-hidden relative border border-gray-50">
-                        <Image
-                          src={produto.imagemUrl}
-                          alt={produto.nome}
-                          fill
-                          sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 25vw"
-                          className="object-contain group-hover:scale-110 transition-transform duration-500"
-                          priority={false}
-                        />
-                        {/* Badge de Categoria Flutuante */}
-                        <span className="absolute top-2 left-2 bg-white/80 backdrop-blur-sm text-[10px] font-bold px-2 py-1 rounded shadow-sm uppercase">
-                          {produto.categoriaNome}
-                        </span>
+              : produtos
+                  .filter((p: any) => p.ativo === true)
+                  .map((produto: any) => {
+                    // 1. Definimos a constante de controle baseada no novo campo do DTO
+                    const isEsgotado = produto.estoqueDisponivel <= 0;
+
+                    return (
+                      <div
+                        key={produto.id}
+                        // 2. Ajustamos o estilo: se esgotado, tiramos o hover e adicionamos opacidade/grayscale
+                        className={`group border rounded-xl p-4 transition-all duration-300 bg-white flex flex-col justify-between 
+          ${
+            isEsgotado
+              ? "opacity-70 grayscale-[0.2]"
+              : "hover:shadow-xl cursor-pointer"
+          }`}
+                        // 3. Impedimos a navegação para a página do produto se estiver esgotado (opcional, conforme sua regra)
+                        onClick={() =>
+                          router.push(`/catalogo/produtos/${produto.id}`)
+                        }
+                      >
+                        <div>
+                          {/* CONTAINER DA IMAGEM */}
+                          <div className="h-44 flex items-center justify-center mb-4 bg-gray-100 rounded-lg overflow-hidden relative border border-gray-50">
+                            <Image
+                              src={produto.imagemUrl}
+                              alt={produto.nome}
+                              fill
+                              sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 25vw"
+                              className="object-contain group-hover:scale-110 transition-transform duration-500"
+                              priority={false}
+                            />
+
+                            {/* Badge de Categoria Flutuante */}
+                            <span className="absolute top-2 left-2 bg-white/80 backdrop-blur-sm text-[10px] font-bold px-2 py-1 rounded shadow-sm uppercase">
+                              {produto.categoriaNome}
+                            </span>
+
+                            {/* 4. Overlay de Esgotado sobre a imagem */}
+                            {isEsgotado && (
+                              <div className="absolute inset-0 bg-black/5 flex items-center justify-center">
+                                <span className="bg-white text-gray-800 text-[10px] font-black px-3 py-1 rounded-full shadow-lg uppercase tracking-tighter">
+                                  Indisponível
+                                </span>
+                              </div>
+                            )}
+                          </div>
+
+                          <h3 className="font-semibold text-gray-800 text-sm line-clamp-2 mb-1 group-hover:text-blue-600 transition-colors">
+                            {produto.nome}
+                          </h3>
+
+                          <p className="text-[11px] text-gray-400 mb-2 font-mono">
+                            ID: #{produto.id.toString().padStart(4, "0")}
+                          </p>
+                        </div>
+
+                        <div className="mt-4 pt-3 border-t border-gray-50">
+                          <div className="flex items-baseline gap-1 mb-3">
+                            <span className="text-xs font-bold text-green-600 font-mono">
+                              R$
+                            </span>
+                            <span className="font-bold text-xl text-green-600 tracking-tight">
+                              {produto.preco?.toLocaleString("pt-BR", {
+                                minimumFractionDigits: 2,
+                              })}
+                            </span>
+                          </div>
+
+                          {/* 5. Lógica do Botão: Se esgotado, mostra botão desabilitado, se não, mostra o AddToCart */}
+                          {isEsgotado ? (
+                            <button
+                              disabled
+                              className="w-full py-2 bg-gray-100 text-gray-400 text-xs font-bold rounded-lg uppercase border border-gray-200"
+                            >
+                              Esgotado
+                            </button>
+                          ) : (
+                            <AddToCartButton produtoId={produto.id} />
+                          )}
+                        </div>
                       </div>
-
-                      <h3 className="font-semibold text-gray-800 text-sm line-clamp-2 mb-1 group-hover:text-blue-600 transition-colors">
-                        {produto.nome}
-                      </h3>
-
-                      <p className="text-[11px] text-gray-400 mb-2 font-mono">
-                        ID: #{produto.id.toString().padStart(4, "0")}
-                      </p>
-                    </div>
-
-                    <div className="mt-4 pt-3 border-t border-gray-50">
-                      <div className="flex items-baseline gap-1 mb-3">
-                        <span className="text-xs font-bold text-green-600 font-mono">
-                          R$
-                        </span>
-                        <span className="font-bold text-xl text-green-600 tracking-tight">
-                          {produto.preco?.toLocaleString("pt-BR", {
-                            minimumFractionDigits: 2,
-                          })}
-                        </span>
-                      </div>
-
-                      <AddToCartButton produtoId={produto.id} />
-                    </div>
-                  </div>
-                ))}
+                    );
+                  })}
           </div>
 
           {!loading && produtos.length === 0 && (
