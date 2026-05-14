@@ -20,10 +20,10 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: {
-    default: "Integral ERP",
-    template: "%s | Integral ERP",
+    default: "GR Tools",
+    template: "%s | GR Tools",
   },
-  description: "Sistema ERP Integral Service",
+  description: "Sistema ERP GR Tools",
 };
 
 export default function RootLayout({

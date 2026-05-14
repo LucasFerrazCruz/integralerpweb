@@ -181,7 +181,12 @@ export default function ProdutoPage() {
                 </p>
               </div>
             ) : (
-              <AddToCartButton produtoId={produto.id} />
+              <AddToCartButton
+                produtoId={produto.id}
+                produtoNome={produto.nome}
+                preco={produto.preco}
+                imagemUrl={produto.imagemUrl}
+              />
             )}
           </div>
         </div>
