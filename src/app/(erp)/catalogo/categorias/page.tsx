@@ -37,12 +37,13 @@ export default function CategoriasPage() {
                 router.push(`/catalogo/produtos?categoria=${cat.id}`)
               }
             >
-              <div className="flex-1 flex items-center justify-center w-full mb-4">
+              <div className="relative w-full h-24 mb-4 flex items-center justify-center">
                 <Image
                   src={cat.imagemUrl || "/placeholder.png"}
                   alt={cat.nome}
                   fill
-                  className="max-h-24 object-contain group-hover:scale-105 transition-transform"
+                  sizes="(max-width: 768px) 50vw, (max-width: 1200px) 25vw, 15vw"
+                  className="object-contain group-hover:scale-105 transition-transform"
                 />
               </div>
               <p className="text-sm font-semibold text-gray-700 leading-tight">
