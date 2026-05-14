@@ -1,8 +1,12 @@
+"use client";
+
 import { useCarrinho } from "@/context/CarrinhoContext";
-import { ShoppingCart, Badge } from "lucide-react";
-import router from "next/router";
+import { useRouter } from "next/navigation";
+import { Badge } from "../ui/badge";
+import { ShoppingCart } from "lucide-react";
 
 export function CarrinhoIcon() {
+  const router = useRouter();
   const { quantidade, animando } = useCarrinho();
 
   return (

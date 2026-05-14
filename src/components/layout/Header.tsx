@@ -1,43 +1,85 @@
 import { useRole } from "@/hooks/useRole";
-import { Link } from "lucide-react";
 import { signOut } from "next-auth/react";
 import { AdminMenu } from "./AdminMenu";
 import { SearchInput } from "./SearchInput";
 import { CarrinhoIcon } from "./CarrinhoIcon";
+import Link from "next/link";
+import { CategoriesMenu } from "./CategoriasMenu";
 
 export function Header() {
-  const { isAdmin, isDistribuidor } = useRole();
+  const { isAdmin, isDistribuidor, status } = useRole();
+
+  const showAdminMenu = isAdmin || isDistribuidor;
+  const isLoggedOut = status === "unauthenticated";
+  const isCliente = !showAdminMenu && !isLoggedOut;
+
+  async function handleLogout() {
+    // signOut limpa os cookies do NextAuth automaticamente
+    await signOut({
+      redirect: true,
+      callbackUrl: "/login", // Para onde o usuário vai após sair
+    });
+  }
 
   return (
     <header className="flex flex-col w-full">
-      {/* BARRA SUPERIOR (Preta/Escura) - Identidade e Conta */}
-      <div className="bg-zinc-950 text-white h-10 flex items-center px-6 justify-between text-xs">
-        <div className="font-bold tracking-tighter text-sm">GR TOOLS</div>
-
-        <div className="flex items-center gap-4">
-          <Link href="/minha-conta" className="hover:underline">
-            Minha Conta
-          </Link>
-          <Link href="/pedidos" className="hover:underline">
-            Meus Pedidos
-          </Link>
-          <button onClick={() => signOut()} className="text-red-400">
-            Sair
-          </button>
+      {/* BARRA SUPERIOR - Fundo Preto */}
+      <div className="bg-zinc-950 text-white h-10">
+        <div className="max-w-[1400px] mx-auto h-full flex items-center justify-between px-8 text-xs">
+          <div className="font-bold tracking-tighter text-sm">
+            <Link href="/catalogo/categorias">GR Tools</Link>
+          </div>
+          <div className="flex items-center gap-8">
+            <Link
+              href="/usuarios"
+              className="hover:text-gray-300 transition-colors"
+            >
+              Minha Conta
+            </Link>
+            <Link
+              href="/pedidos"
+              className="hover:text-gray-300 transition-colors"
+            >
+              Meus Pedidos
+            </Link>
+            {isLoggedOut ? (
+              <Link
+                href="/login"
+                className="text-sm font-medium hover:underline"
+              >
+                Entrar
+              </Link>
+            ) : (
+              <button
+                onClick={handleLogout}
+                className="text-red-400 hover:text-red-300 font-medium"
+              >
+                Sair
+              </button>
+            )}
+          </div>
         </div>
       </div>
 
-      {/* BARRA INFERIOR (Branca) - Busca, Carrinho e Menu */}
-      <div className="bg-white border-b h-16 flex items-center px-6 gap-8 shadow-sm">
-        {/* O "All Products" da Grainger vira seu "Menu Administrativo" */}
-        {(isAdmin || isDistribuidor) && <AdminMenu />}
+      {/* BARRA INFERIOR - Fundo Branco */}
+      <div className="bg-white border-b h-20 shadow-sm">
+        <div className="max-w-[1400px] mx-auto h-full flex items-center px-8">
+          {/* LADO ESQUERDO - Menu Administrativo */}
+          <div className="w-64 flex-none">
+            {showAdminMenu ? <AdminMenu /> : <CategoriesMenu />}
+          </div>
 
-        <div className="flex-1 max-w-2xl">
-          <SearchInput />
-        </div>
+          {/* CENTRO - Barra de Pesquisa com mais respiro lateral */}
+          <div className="flex-1 flex justify-center px-12">
+            <div className="w-full">
+              <SearchInput />
+            </div>
+          </div>
 
-        <div className="flex items-center gap-4">
-          <CarrinhoIcon />
+          {/* LADO DIREITO - Carrinho */}
+          <div className="w-64 flex-none flex justify-end items-center">
+            <CarrinhoIcon />
+          </div>
         </div>
       </div>
     </header>

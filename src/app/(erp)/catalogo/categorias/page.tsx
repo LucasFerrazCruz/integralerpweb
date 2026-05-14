@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { categoriaService } from "@/services/categoriaService";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 
 export default function CategoriasPage() {
   const [categorias, setCategorias] = useState([]);
@@ -37,9 +38,10 @@ export default function CategoriasPage() {
               }
             >
               <div className="flex-1 flex items-center justify-center w-full mb-4">
-                <img
+                <Image
                   src={cat.imagemUrl || "/placeholder.png"}
                   alt={cat.nome}
+                  fill
                   className="max-h-24 object-contain group-hover:scale-105 transition-transform"
                 />
               </div>
