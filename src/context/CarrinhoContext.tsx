@@ -22,7 +22,11 @@ type CarrinhoContextType = {
   quantidade: number;
   loading: boolean;
   carregarCarrinho: () => Promise<void>;
-  atualizarItem: (produtoId: number, quantidade: number) => Promise<void>;
+  atualizarItem: (
+    produtoId: number,
+    quantidade: number,
+    produtoInfo?: { nome?: string; preco?: number; imagemUrl?: string },
+  ) => Promise<void>;
   animar: () => void;
   animando: boolean;
   limparCarrinho: () => Promise<void>;
