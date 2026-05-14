@@ -8,9 +8,12 @@ export default withAuth(
       req.nextUrl.pathname.startsWith("/login") ||
       req.nextUrl.pathname.startsWith("/register");
 
-    // Se o usuário está logado e tenta ir para login/register, manda para o catálogo
     if (token && isAuthPage) {
-      return NextResponse.redirect(new URL("/catalogo/produtos", req.url));
+      const callbackUrl = req.nextUrl.searchParams.get("callbackUrl");
+
+      const targetUrl = callbackUrl || "/catalogo/produtos";
+
+      return NextResponse.redirect(new URL(targetUrl, req.url));
     }
 
     return NextResponse.next();

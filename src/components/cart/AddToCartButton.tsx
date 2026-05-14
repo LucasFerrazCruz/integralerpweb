@@ -2,33 +2,49 @@
 
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import { carrinhoService } from "@/services/carrinhoService";
 import { useCarrinho } from "@/context/CarrinhoContext";
 import { Loader2, ShoppingCart } from "lucide-react";
 import { useState } from "react";
 
 type Props = {
   produtoId: number;
+  produtoNome?: string;
+  preco?: number;
+  imagemUrl?: string;
 };
 
-export function AddToCartButton({ produtoId }: Props) {
-  const { carregarCarrinho, animar } = useCarrinho();
+export function AddToCartButton({
+  produtoId,
+  produtoNome,
+  preco,
+  imagemUrl,
+}: Props) {
+  const { atualizarItem, carrinho, animar } = useCarrinho();
   const [loading, setLoading] = useState(false);
 
   async function handleAdd(e?: React.MouseEvent) {
     e?.stopPropagation();
+    if (!produtoId) return;
 
     try {
       setLoading(true);
 
-      await carrinhoService.adicionar(produtoId);
+      const itensAtuais = carrinho?.itens || [];
+      const itemExistente = carrinho?.itens.find(
+        (i) => i.produtoId === produtoId,
+      );
+      const novaQuantidade = (itemExistente?.quantidade || 0) + 1;
 
-      await carregarCarrinho();
-      animar();
+      await atualizarItem(produtoId, novaQuantidade, {
+        nome: produtoNome,
+        preco: preco,
+        imagemUrl: imagemUrl,
+      });
 
       toast.success("Produto adicionado ao carrinho 🛒");
-    } catch {
-      toast.error("Erro ao adicionar produto");
+    } catch (error: any) {
+      console.error("Erro ao adicionar:", error);
+      toast.error(error.response?.data?.message || "Erro ao adicionar produto");
     } finally {
       setLoading(false);
     }

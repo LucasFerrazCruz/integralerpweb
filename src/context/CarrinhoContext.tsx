@@ -1,6 +1,7 @@
 "use client";
 
 import { carrinhoService } from "@/services/carrinhoService";
+import { useSession } from "next-auth/react";
 import { createContext, useContext, useEffect, useState } from "react";
 
 type Item = {
@@ -8,6 +9,7 @@ type Item = {
   produtoNome: string;
   preco: number;
   quantidade: number;
+  imagemUrl?: string;
 };
 
 type Carrinho = {
@@ -29,55 +31,113 @@ type CarrinhoContextType = {
 const CarrinhoContext = createContext<CarrinhoContextType | null>(null);
 
 export function CarrinhoProvider({ children }: any) {
-  const [carrinho, setCarrinho] = useState<Carrinho | null>(null);
+  const { data: session, status } = useSession();
+  const [carrinho, setCarrinho] = useState<Carrinho | null>({
+    itens: [],
+    total: 0,
+  });
+  const quantidade =
+    carrinho?.itens.reduce((acc, item) => acc + item.quantidade, 0) || 0;
   const [loading, setLoading] = useState(true);
   const [animando, setAnimando] = useState(false);
 
   async function carregarCarrinho() {
-    try {
-      setLoading(true);
-      const data = await carrinhoService.buscar();
-      setCarrinho(data);
-    } catch {
-      console.error("Erro ao carregar carrinho");
-    } finally {
+    if (status === "loading") return;
+
+    if (session) {
+      try {
+        setLoading(true);
+        const data = await carrinhoService.buscar();
+        setCarrinho(data);
+      } catch {
+        console.error("Erro ao carregar carrinho");
+      } finally {
+        setLoading(false);
+      }
+    } else {
+      const localData = localStorage.getItem("carrinho_provisorio");
+
+      if (localData) {
+        const itens = JSON.parse(localData);
+        const total = itens.reduce(
+          (acc: number, item: any) => acc + item.preco * item.quantidade,
+          0,
+        );
+        setCarrinho({ itens, total });
+      }
       setLoading(false);
     }
   }
 
   useEffect(() => {
-    const fetch = async () => {
-      await carregarCarrinho();
-    };
+    if (status === "authenticated" && session) {
+      const sincronizar = async () => {
+        const localData = localStorage.getItem("carrinho_provisorio");
 
-    fetch();
-  }, []);
+        try {
+          await carrinhoService.buscar();
 
-  // Quantidade total
-  const quantidade =
-    carrinho?.itens.reduce((acc, item) => acc + item.quantidade, 0) || 0;
-
-  // Atualizar item(fonte única)
-  async function atualizarItem(produtoId: number, quantidade: number) {
-    try {
-      await carrinhoService.atualizar(produtoId, quantidade);
-
-      setCarrinho((prev) => {
-        if (!prev) return prev;
-
-        const itensAtualizados = prev.itens
-          .map((item) =>
-            item.produtoId === produtoId ? { ...item, quantidade } : item,
-          )
-          .filter((item) => item.quantidade > 0);
-
-        return { ...prev, itens: itensAtualizados };
-      });
-
-      animar();
-    } catch (err) {
-      console.error(err);
+          if (localData) {
+            const itens = JSON.parse(localData);
+            // 2. Sincroniza um por um
+            for (const item of itens) {
+              await carrinhoService.atualizar(item.produtoId, item.quantidade);
+            }
+            localStorage.removeItem("carrinho_provisorio");
+          }
+        } catch (err) {
+          console.error("Erro na sincronização:", err);
+        } finally {
+          // 3. Só carrega o estado final após garantir a sincronização
+          await carregarCarrinho();
+        }
+      };
+      sincronizar();
+    } else if (status === "unauthenticated") {
+      carregarCarrinho();
     }
+  }, [session, status]);
+
+  async function atualizarItem(
+    produtoId: number,
+    quantidade: number,
+    produtoInfo?: any,
+  ) {
+    if (session) {
+      // Logado: Vai direto para o banco
+      console.log("Enviando para API:", { produtoId, quantidade });
+      await carrinhoService.atualizar(produtoId, quantidade);
+      await carregarCarrinho();
+    } else {
+      // Deslogado: Manipula LocalStorage
+      const itensAtuais = [...(carrinho?.itens || [])];
+      const index = itensAtuais.findIndex((i) => i.produtoId === produtoId);
+
+      if (index > -1) {
+        if (quantidade <= 0) {
+          itensAtuais.splice(index, 1);
+        } else {
+          itensAtuais[index].quantidade = quantidade;
+        }
+      } else if (quantidade > 0 && produtoInfo) {
+        // Se for um item novo, adiciona com as infos do produto
+        itensAtuais.push({
+          produtoId,
+          produtoNome: produtoInfo.nome,
+          preco: produtoInfo.preco,
+          quantidade,
+          imagemUrl: produtoInfo.imagemUrl,
+        });
+      }
+
+      localStorage.setItem("carrinho_provisorio", JSON.stringify(itensAtuais));
+      const total = itensAtuais.reduce(
+        (acc, item) => acc + item.preco * item.quantidade,
+        0,
+      );
+      setCarrinho({ itens: itensAtuais, total });
+    }
+    animar();
   }
 
   function animar() {
@@ -86,7 +146,12 @@ export function CarrinhoProvider({ children }: any) {
   }
 
   async function limparCarrinho() {
-    await carregarCarrinho();
+    if (session) {
+      setCarrinho({ itens: [], total: 0 });
+    } else {
+      localStorage.removeItem("carrinho_provisorio");
+      setCarrinho({ itens: [], total: 0 });
+    }
   }
 
   return (

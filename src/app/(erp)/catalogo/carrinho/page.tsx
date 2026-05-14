@@ -8,11 +8,13 @@ import { ArrowRight, Minus, Plus, ShoppingBag, Trash2 } from "lucide-react";
 import { useCarrinho } from "@/context/CarrinhoContext";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
+import { useSession } from "next-auth/react";
 
 export default function CarrinhoPage() {
   const router = useRouter();
   const { carrinho, atualizarItem, loading } = useCarrinho();
   const [loadingItens, setLoadingItens] = useState<number[]>([]);
+  const { data: session } = useSession();
 
   function setItemLoading(produtoId: number, value: boolean) {
     setLoadingItens((prev) =>
@@ -89,7 +91,7 @@ export default function CarrinhoPage() {
       <div className="grid gap-6">
         {carrinho.itens.map((item: any) => (
           <Card
-            key={item.id}
+            key={item.produtoId}
             className="overflow-hidden border-gray-100 shadow-sm"
           >
             <CardContent className="p-0">
@@ -97,8 +99,12 @@ export default function CarrinhoPage() {
                 {/* IMAGEM COM SUPABASE FIX */}
                 <div className="relative w-24 h-24 bg-gray-50 rounded-lg overflow-hidden flex-shrink-0 border border-gray-100">
                   <Image
-                    src={item.imagemUrl || "/placeholder.png"}
-                    alt={item.produtoNome}
+                    src={
+                      item.imagemUrl && item.imagemUrl !== ""
+                        ? item.imagemUrl
+                        : "/placeholder.png"
+                    }
+                    alt={item.produtoNome || "Produto"}
                     fill
                     className="object-contain p-2"
                   />
@@ -201,6 +207,14 @@ export default function CarrinhoPage() {
               className="bg-black hover:bg-gray-800 text-white px-10 gap-2 h-14 text-lg"
               onClick={() => {
                 if (!carrinho.itens.length) return;
+
+                if (!session) {
+                  // Se não está logado, vai para login salvando o destino final
+                  router.push("/login?callbackUrl=/checkout");
+                  return;
+                }
+
+                // Se já está logado, vai direto
                 router.push("/checkout");
               }}
             >

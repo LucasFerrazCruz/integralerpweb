@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -9,6 +9,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { useCarrinho } from "@/context/CarrinhoContext";
 import { pedidoService } from "@/services/pedidoService";
 import { freteService } from "@/services/freteService";
+import { useSession } from "next-auth/react";
 
 interface OpcaoFrete {
   nomeServico: string;
@@ -18,6 +19,7 @@ interface OpcaoFrete {
 }
 
 export default function CheckoutPage() {
+  const { data: session, status } = useSession();
   const { carrinho, loading, limparCarrinho } = useCarrinho();
   const [endereco, setEndereco] = useState({
     cep: "",
@@ -45,8 +47,28 @@ export default function CheckoutPage() {
 
   const router = useRouter();
 
-  if (loading || !carrinho) {
-    return <p className="p-8">Carregando...</p>;
+  useEffect(() => {
+    if (status === "unauthenticated") {
+      toast.error("Você precisa estar logado para finalizar a compra.");
+      router.push("/login?callbackUrl=/checkout"); // Redireciona e volta após login
+    }
+  }, [status, router]);
+
+  if (status === "loading" || loading) {
+    return (
+      <div className="flex flex-col items-center justify-center p-20 space-y-4">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+        <p>Validando acesso e carregando carrinho...</p>
+      </div>
+    );
+  }
+
+  if (status === "unauthenticated") {
+    return null;
+  }
+
+  if (!carrinho) {
+    return <p className="p-8">Erro ao carregar dados do carrinho.</p>;
   }
 
   if (carrinho.itens.length === 0) {

@@ -27,13 +27,21 @@ export default function RegisterForm() {
 
   async function handleRegister(e: React.FormEvent) {
     e.preventDefault();
+
+    // Validação de senha
+    const passwordRegex = /^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d]{8,}$/;
+    if (!passwordRegex.test(senha)) {
+      toast.error(
+        "A senha deve ter no mínimo 8 caracteres, incluindo letras e números.",
+      );
+      return;
+    }
+
     setLoading(true);
 
     try {
-      // 1. Backend cria o usuário
       await register(nome, email, senha);
 
-      // 2. NextAuth faz o login automático
       const result = await signIn("credentials", {
         email,
         senha,
@@ -45,8 +53,11 @@ export default function RegisterForm() {
         router.replace("/catalogo/produtos");
         router.refresh();
       }
-    } catch (err) {
-      toast.error("Erro ao cadastrar. Verifique se o email já existe.");
+    } catch (err: any) {
+      const msg =
+        err.response?.data?.message ||
+        "Erro ao cadastrar. O e-mail pode já estar em uso.";
+      toast.error(msg);
     } finally {
       setLoading(false);
     }
