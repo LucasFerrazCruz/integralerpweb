@@ -7,28 +7,44 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { AddToCartButton } from "@/components/cart/AddToCartButton";
 import Image from "next/image";
 import ProdutoSkeleton from "@/components/skeleton/ProdutoSkeleton";
+import { categoriaService } from "@/services/categoriaService";
+import { Checkbox } from "@/components/ui/checkbox";
 
 function CatalogoProdutosContent() {
   const [produtos, setProdutos] = useState([]);
+  const [categorias, setCategorias] = useState([]);
   const [loading, setLoading] = useState(true);
 
   const searchParams = useSearchParams();
   const router = useRouter();
 
-  const categoria = searchParams.get("categoria");
-  const busca = searchParams.get("q");
+  const categoriasSelecionadas =
+    searchParams.get("categoria")?.split(",") || [];
+  const busca = searchParams.get("q") || "";
 
   useEffect(() => {
-    carregar();
-  }, [categoria, busca]);
+    carregarCategorias();
+  }, []);
 
-  async function carregar() {
+  useEffect(() => {
+    carregarProdutos();
+  }, [searchParams]);
+
+  async function carregarCategorias() {
+    try {
+      const data = await categoriaService.listar();
+      setCategorias(data);
+    } catch (error) {
+      console.error("Erro ao carregar categorias", error);
+    }
+  }
+
+  async function carregarProdutos() {
     setLoading(true);
-
     try {
       const data = await produtoService.listarCatalogo({
-        categoria: categoria ? Number(categoria) : undefined,
-        q: busca?.trim() ? busca : undefined,
+        categoria: searchParams.get("categoria"),
+        q: busca.trim() || undefined,
       });
       setProdutos(data);
     } finally {
@@ -36,39 +52,97 @@ function CatalogoProdutosContent() {
     }
   }
 
-  const columns: ColumnDef<any>[] = [
-    {
-      accessorKey: "nome",
-      header: "Produto",
-    },
-    {
-      accessorKey: "categoria",
-      header: "Categoria",
-    },
-  ];
+  // async function carregar() {
+  //   setLoading(true);
+
+  //   try {
+  //     const data = await produtoService.listarCatalogo({
+  //       categoria: categoria ? Number(categoria) : undefined,
+  //       q: busca?.trim() ? busca : undefined,
+  //     });
+  //     setProdutos(data);
+  //   } finally {
+  //     setLoading(false);
+  //   }
+  // }
+
+  const handleToggleCategoria = (id: string) => {
+    const params = new URLSearchParams(searchParams.toString());
+    let novasCategorias = [...categoriasSelecionadas];
+
+    if (novasCategorias.includes(id)) {
+      novasCategorias = novasCategorias.filter((c) => c !== id);
+    } else {
+      novasCategorias.push(id);
+    }
+
+    if (novasCategorias.length > 0) {
+      params.set("categoria", novasCategorias.join(","));
+    } else {
+      params.delete("categoria");
+    }
+
+    router.push(`/catalogo/produtos?${params.toString()}`);
+  };
 
   return (
     <div className="p-6 bg-gray-50 min-h-screen">
-      <div className="grid grid-cols-5 gap-6">
-        {/* SIDEBAR DE FILTROS */}
-        <div className="col-span-1 border rounded-xl p-5 bg-white shadow-sm h-fit">
-          <h2 className="font-bold text-gray-800 mb-4 flex items-center gap-2">
-            Filtros
-          </h2>
-          <div className="space-y-2">
-            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
-              Categoria Selecionada
-            </p>
-            <p className="text-sm font-medium text-blue-600 bg-blue-50 p-2 rounded-md border border-blue-100">
-              {categoria || "Todas as Categorias"}
-            </p>
-          </div>
-        </div>
+      {/* 1. Container Principal com limite de largura para evitar espalhamento */}
+      <div className="max-w-[1440px] mx-auto flex flex-col lg:flex-row gap-8">
+        {/* SIDEBAR DE FILTROS - Largura fixa no desktop */}
+        <aside className="w-full lg:w-64 flex-shrink-0">
+          <div className="border rounded-xl p-5 bg-white shadow-sm sticky top-24">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="font-bold text-gray-800">Filtros</h2>
+              {categoriasSelecionadas.length > 0 && (
+                <button
+                  onClick={() => router.push("/catalogo/produtos")}
+                  className="text-[10px] text-blue-600 hover:underline font-normal"
+                >
+                  Limpar
+                </button>
+              )}
+            </div>
 
-        {/* ÁREA DE PRODUTOS */}
-        <div className="col-span-4 space-y-6">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            {/* 4. LÓGICA DE EXIBIÇÃO: LOADING vs PRODUTOS */}
+            <div className="space-y-6">
+              <div>
+                <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-4">
+                  Categorias
+                </p>
+                <div className="space-y-3">
+                  {categorias.map((cat: any) => (
+                    <div key={cat.id} className="flex items-center space-x-3">
+                      <Checkbox
+                        id={`cat-${cat.id}`}
+                        checked={categoriasSelecionadas.includes(
+                          cat.id.toString(),
+                        )}
+                        onCheckedChange={() =>
+                          handleToggleCategoria(cat.id.toString())
+                        }
+                      />
+                      <label
+                        htmlFor={`cat-${cat.id}`}
+                        className="text-sm font-medium leading-none cursor-pointer text-gray-600 hover:text-blue-600 transition-colors"
+                      >
+                        {cat.nome}
+                      </label>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        </aside>
+
+        {/* ÁREA DE PRODUTOS - Flex Grow para ocupar o centro */}
+        <main className="flex-grow">
+          {/* GRID CORRIGIDO: 
+              - Mobile: 1 coluna
+              - Tablet: 2 ou 3 colunas
+              - Desktop: Máximo de 4 colunas (removido grid-cols-5)
+          */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-6">
             {loading
               ? Array.from({ length: 8 }).map((_, i) => (
                   <ProdutoSkeleton key={i} />
@@ -76,26 +150,18 @@ function CatalogoProdutosContent() {
               : produtos
                   .filter((p: any) => p.ativo === true)
                   .map((produto: any) => {
-                    // 1. Definimos a constante de controle baseada no novo campo do DTO
                     const isEsgotado = produto.estoqueDisponivel <= 0;
 
                     return (
                       <div
                         key={produto.id}
-                        // 2. Ajustamos o estilo: se esgotado, tiramos o hover e adicionamos opacidade/grayscale
-                        className={`group border rounded-xl p-4 transition-all duration-300 bg-white flex flex-col justify-between 
-          ${
-            isEsgotado
-              ? "opacity-70 grayscale-[0.2]"
-              : "hover:shadow-xl cursor-pointer"
-          }`}
-                        // 3. Impedimos a navegação para a página do produto se estiver esgotado (opcional, conforme sua regra)
+                        className={`group border rounded-xl p-4 transition-all duration-300 bg-white flex flex-col justify-between shadow-sm
+                        ${isEsgotado ? "opacity-75 grayscale-[0.2]" : "hover:shadow-xl cursor-pointer hover:border-blue-200"}`}
                         onClick={() =>
                           router.push(`/catalogo/produtos/${produto.id}`)
                         }
                       >
                         <div>
-                          {/* CONTAINER DA IMAGEM */}
                           <div className="h-44 flex items-center justify-center mb-4 bg-gray-100 rounded-lg overflow-hidden relative border border-gray-50">
                             <Image
                               src={produto.imagemUrl}
@@ -105,16 +171,12 @@ function CatalogoProdutosContent() {
                               className="object-contain group-hover:scale-110 transition-transform duration-500"
                               priority={false}
                             />
-
-                            {/* Badge de Categoria Flutuante */}
                             <span className="absolute top-2 left-2 bg-white/80 backdrop-blur-sm text-[10px] font-bold px-2 py-1 rounded shadow-sm uppercase">
                               {produto.categoriaNome}
                             </span>
-
-                            {/* 4. Overlay de Esgotado sobre a imagem */}
                             {isEsgotado && (
                               <div className="absolute inset-0 bg-black/5 flex items-center justify-center">
-                                <span className="bg-white text-gray-800 text-[10px] font-black px-3 py-1 rounded-full shadow-lg uppercase tracking-tighter">
+                                <span className="bg-white text-gray-800 text-[10px] font-black px-3 py-1 rounded-full shadow-lg uppercase">
                                   Indisponível
                                 </span>
                               </div>
@@ -124,7 +186,6 @@ function CatalogoProdutosContent() {
                           <h3 className="font-semibold text-gray-800 text-sm line-clamp-2 mb-1 group-hover:text-blue-600 transition-colors">
                             {produto.nome}
                           </h3>
-
                           <p className="text-[11px] text-gray-400 mb-2 font-mono">
                             ID: #{produto.id.toString().padStart(4, "0")}
                           </p>
@@ -142,7 +203,6 @@ function CatalogoProdutosContent() {
                             </span>
                           </div>
 
-                          {/* 5. Lógica do Botão: Se esgotado, mostra botão desabilitado, se não, mostra o AddToCart */}
                           {isEsgotado ? (
                             <button
                               disabled
@@ -169,7 +229,7 @@ function CatalogoProdutosContent() {
               Nenhum item encontrado para sua busca.
             </div>
           )}
-        </div>
+        </main>
       </div>
     </div>
   );
