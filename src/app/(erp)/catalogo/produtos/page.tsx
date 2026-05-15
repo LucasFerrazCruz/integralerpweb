@@ -43,28 +43,16 @@ function CatalogoProdutosContent() {
     setLoading(true);
     try {
       const data = await produtoService.listarCatalogo({
-        categoria: searchParams.get("categoria"),
+        categoria: searchParams.get("categoria") || undefined,
         q: busca.trim() || undefined,
       });
       setProdutos(data);
+    } catch (error) {
+      console.error("Erro ao carregar produtos:", error);
     } finally {
       setLoading(false);
     }
   }
-
-  // async function carregar() {
-  //   setLoading(true);
-
-  //   try {
-  //     const data = await produtoService.listarCatalogo({
-  //       categoria: categoria ? Number(categoria) : undefined,
-  //       q: busca?.trim() ? busca : undefined,
-  //     });
-  //     setProdutos(data);
-  //   } finally {
-  //     setLoading(false);
-  //   }
-  // }
 
   const handleToggleCategoria = (id: string) => {
     const params = new URLSearchParams(searchParams.toString());
