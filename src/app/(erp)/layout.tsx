@@ -10,8 +10,8 @@ export default function MainLayout({ children }: { children: ReactNode }) {
       {/* O Header agora contém toda a navegação */}
       <Header />
 
-      <main className="flex-1">
-        <div className="p-4 md:p-8 max-w-350 mx-auto">
+      <main className="flex-1 w-full">
+        <div className="p-2 md:p-8 max-w-[1400px] mx-auto w-full">
           <Suspense fallback={<div>Carregando...</div>}>{children}</Suspense>
         </div>
       </main>
