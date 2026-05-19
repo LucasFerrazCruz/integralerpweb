@@ -6,8 +6,14 @@ export const pagamentoService = {
     return api.post(`/api/pagamentos/${pedidoId}/simular`);
   },
 
-  async gerarPix(pedidoId: number) {
-    const { data } = await api.post(`/api/pagamentos/${pedidoId}/pix`);
+  async gerarPix(
+    pedidoId: number,
+    dadosPagador?: { emailPagador: string; cpfPagador: string },
+  ) {
+    const { data } = await api.post(
+      `/api/pagamentos/${pedidoId}/pix`,
+      dadosPagador,
+    );
     return data;
   },
 

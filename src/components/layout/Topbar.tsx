@@ -7,30 +7,24 @@ import { useRouter } from "next/navigation";
 import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
 import { SearchInput } from "./SearchInput";
+import { signOut } from "next-auth/react";
 
 export default function Topbar() {
   const { usuario } = useAuth();
   const { quantidade, animando } = useCarrinho();
   const router = useRouter();
 
-  function logout() {
-    localStorage.removeItem("token");
-    window.location.href = "/login";
+  async function handleLogout() {
+    // signOut limpa os cookies do NextAuth automaticamente
+    await signOut({
+      redirect: true,
+      callbackUrl: "/login", // Para onde o usuário vai após sair
+    });
   }
 
   return (
     <div className="h-16 bg-white border-b flex items-center px-6">
-      {/* 1. LADO ESQUERDO (Espaço reservado para equilíbrio ou Breadcrumbs) */}
-      {/* <div className="flex-1 hidden md:block">
-        <span className="text-xs text-gray-400 font-medium uppercase tracking-widest">
-          ERP Integral
-        </span>
-      </div> */}
-
-      {/* comentei isso só para disparar webhook do kinghost */}
-
-      {/* 2. CENTRO (A Busca) */}
-      <div className="flex-[2] flex justify-center">
+      <div className="flex-2 flex justify-center">
         <SearchInput />
       </div>
 
@@ -55,14 +49,14 @@ export default function Topbar() {
             {usuario?.nome}
           </span>
           <span className="text-[10px] text-gray-400 uppercase">
-            Administrador
+            {usuario?.role}
           </span>
         </div>
 
         <Button
           variant="ghost"
           size="sm"
-          onClick={logout}
+          onClick={handleLogout}
           className="text-red-500 hover:bg-red-50"
         >
           Sair

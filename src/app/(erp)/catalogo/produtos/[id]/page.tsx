@@ -34,6 +34,24 @@ export default function ProdutoPage() {
   if (!produto)
     return <div className="p-20 text-center">Produto não encontrado.</div>;
 
+  const isEsgotado = produto.estoqueDisponivel <= 0;
+
+  if (!produto || produto.ativo === false) {
+    return (
+      <div className="p-20 text-center space-y-4">
+        <h2 className="text-xl font-bold text-gray-800">
+          Produto Indisponível
+        </h2>
+        <p className="text-gray-500">
+          Este item não está mais disponível em nosso catálogo.
+        </p>
+        <Button onClick={() => router.push("/catalogo/produtos")}>
+          Voltar para a Loja
+        </Button>
+      </div>
+    );
+  }
+
   return (
     <div className="p-4 md:p-8 max-w-7xl mx-auto">
       {/* BOTÃO VOLTAR & BREADCRUMB */}
@@ -46,7 +64,9 @@ export default function ProdutoPage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
         {/* LADO ESQUERDO: IMAGEM */}
-        <div className="relative h-100 md:h-125 w-full bg-gray-50 rounded-xl overflow-hidden border border-gray-50">
+        <div
+          className={`relative h-100 md:h-125 w-full bg-gray-50 rounded-xl overflow-hidden border border-gray-50 transition-all ${isEsgotado && "grayscale-[0.4] opacity-80"}`}
+        >
           <Image
             src={produto.imagemUrl || "/placeholder.png"}
             alt={produto.nome}
@@ -55,6 +75,11 @@ export default function ProdutoPage() {
             sizes="(max-width: 768px) 100vw, 50vw"
             className="object-contain p-4"
           />
+          {isEsgotado && (
+            <div className="absolute top-4 right-4 bg-white border-2 border-red-500 text-red-500 font-black px-4 py-1 rounded-full shadow-xl uppercase tracking-tighter text-sm z-10">
+              Produto Indisponível
+            </div>
+          )}
         </div>
 
         {/* LADO DIREITO: INFO */}
@@ -110,16 +135,29 @@ export default function ProdutoPage() {
           </div>
 
           <div className="space-y-4 mb-8">
+            {/* 2. Alteração dinâmica da Disponibilidade */}
             <div className="flex items-center gap-3 text-sm text-gray-600">
-              <Package size={18} className="text-blue-500" />
+              <Package
+                size={18}
+                className={isEsgotado ? "text-gray-400" : "text-blue-500"}
+              />
               <span>
                 Disponibilidade:{" "}
-                <strong className="text-green-600">Em estoque</strong>
+                {isEsgotado ? (
+                  <strong className="text-red-500">Esgotado no momento</strong>
+                ) : (
+                  <strong className="text-green-600">Em estoque</strong>
+                )}
               </span>
             </div>
+
             <div className="flex items-center gap-3 text-sm text-gray-600">
               <Truck size={18} className="text-blue-500" />
-              <span>Envio imediato para todo o Brasil</span>
+              <span>
+                {isEsgotado
+                  ? "Previsão de reposição em breve"
+                  : "Envio imediato para todo o Brasil"}
+              </span>
             </div>
             <div className="flex items-center gap-3 text-sm text-gray-600">
               <ShieldCheck size={18} className="text-blue-500" />
@@ -127,8 +165,29 @@ export default function ProdutoPage() {
             </div>
           </div>
 
+          {/* 3. Lógica do Botão de Compra */}
           <div className="mt-auto">
-            <AddToCartButton produtoId={produto.id} />
+            {isEsgotado ? (
+              <div className="space-y-3">
+                <Button
+                  disabled
+                  className="w-full h-14 bg-gray-100 text-gray-400 border-gray-200 text-lg font-bold uppercase"
+                >
+                  Indisponível
+                </Button>
+                <p className="text-xs text-center text-gray-400">
+                  Este item não pode ser adicionado ao carrinho pois o estoque
+                  está zerado.
+                </p>
+              </div>
+            ) : (
+              <AddToCartButton
+                produtoId={produto.id}
+                produtoNome={produto.nome}
+                preco={produto.preco}
+                imagemUrl={produto.imagemUrl}
+              />
+            )}
           </div>
         </div>
       </div>

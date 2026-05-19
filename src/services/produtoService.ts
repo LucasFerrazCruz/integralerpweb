@@ -20,7 +20,7 @@ export const produtoService = {
     return api.get("/api/produtos/estoque", { params }).then((res) => res.data);
   },
 
-  async listarCatalogo(params?: { categoria?: number; q?: string }) {
+  async listarCatalogo(params?: { categoria?: string; q?: string }) {
     const { data } = await api.get("/api/produtos/catalogo", {
       params,
     });

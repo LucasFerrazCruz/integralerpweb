@@ -25,6 +25,7 @@ import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { Centro } from "@/types/Centro";
+import { GerenciarCategoriasModal } from "@/components/modals/GerenciarCategoriasModal";
 
 export default function ProdutosEstoquePage() {
   const [produtos, setProdutos] = useState<any[]>([]);
@@ -43,13 +44,27 @@ export default function ProdutosEstoquePage() {
 
   const { isAdmin, isDistribuidor, status } = useRole();
 
-  if (status === "loading") {
-    return <div className="p-6 text-center">Carregando permissões...</div>;
-  }
+  const [isGerenciarCategoriasOpen, setIsGerenciarCategoriasOpen] =
+    useState(false);
 
-  // if (!isAdmin && !isDistribuidor) {
-  //   return <div className="p-6 text-center text-red-500">Acesso negado.</div>;
-  // }
+  // ======================================================
+  // LOAD CENTROS
+  // ======================================================
+  useEffect(() => {
+    if (isAdmin) {
+      carregarCentros();
+    }
+  }, [isAdmin]);
+
+  // ======================================================
+  // LOAD PRODUTOS
+  // ======================================================
+  useEffect(() => {
+    if (isAdmin && !centroSelecionado) return;
+    if (status === "loading") return;
+
+    carregar();
+  }, [centroSelecionado, incluirInativos, isAdmin, status]);
 
   async function carregar() {
     // Se for admin, precisamos do ID. Se for distribuidor, o backend resolve sozinho.
@@ -83,24 +98,6 @@ export default function ProdutosEstoquePage() {
       console.error("Erro ao carregar centros:", error);
     }
   }
-
-  // ======================================================
-  // LOAD CENTROS
-  // ======================================================
-  useEffect(() => {
-    if (isAdmin) {
-      carregarCentros();
-    }
-  }, [isAdmin]);
-
-  // ======================================================
-  // LOAD PRODUTOS
-  // ======================================================
-  useEffect(() => {
-    if (isAdmin && !centroSelecionado) return;
-
-    carregar();
-  }, [centroSelecionado, incluirInativos, isAdmin]);
 
   // ======================================================
   // AÇÕES
@@ -244,6 +241,14 @@ export default function ProdutosEstoquePage() {
     },
   ];
 
+  if (status === "loading") {
+    return <div className="p-6 text-center">Carregando permissões...</div>;
+  }
+
+  if (!isAdmin && !isDistribuidor) {
+    return <div className="p-6 text-center text-red-500">Acesso negado.</div>;
+  }
+
   if (isAdmin || isDistribuidor) {
     return (
       <div className="p-6">
@@ -252,9 +257,18 @@ export default function ProdutosEstoquePage() {
           <h1 className="text-2xl font-semibold">Produtos</h1>
 
           {isAdmin && (
-            <Button onClick={() => router.push("/estoque/produtos/novo")}>
-              Novo Produto
-            </Button>
+            <>
+              <Button
+                variant="outline"
+                onClick={() => setIsGerenciarCategoriasOpen(true)}
+              >
+                Gerenciar Categorias
+              </Button>
+
+              <Button onClick={() => router.push("/estoque/produtos/novo")}>
+                Novo Produto
+              </Button>
+            </>
           )}
         </div>
 
@@ -348,6 +362,11 @@ export default function ProdutosEstoquePage() {
             </Button>
           </DialogContent>
         </Dialog>
+
+        <GerenciarCategoriasModal
+          isOpen={isGerenciarCategoriasOpen}
+          onClose={() => setIsGerenciarCategoriasOpen(false)}
+        />
       </div>
     );
   }

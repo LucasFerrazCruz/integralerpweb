@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Input } from "@/components/ui/input";
-import { Search } from "lucide-react";
+import { Search, X } from "lucide-react";
 import { Button } from "../ui/button";
 
 export function SearchInput() {
@@ -21,6 +21,7 @@ export function SearchInput() {
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
     const params = new URLSearchParams(searchParams.toString());
+
     if (busca.trim()) params.set("q", busca);
     else params.delete("q");
 
@@ -38,14 +39,32 @@ export function SearchInput() {
         value={busca}
         onChange={(e) => setBusca(e.target.value)}
       />
-      <Button
-        type="submit"
-        size="icon"
-        variant="ghost"
-        className="absolute right-1 top-1/2 -translate-y-1/2 h-9 w-9 rounded-full hover:bg-blue-50 text-gray-400 hover:text-blue-600 transition-colors"
-      >
-        <Search className="w-5 h-5" />
-      </Button>
+
+      <div className="absolute right-1 top-1/2 -translate-y-1/2 flex items-center gap-1">
+        {busca && (
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8 rounded-full text-gray-400 hover:text-gray-600"
+            onClick={() => {
+              setBusca("");
+              router.push("/catalogo/produtos");
+            }}
+          >
+            <X className="w-4 h-4" />
+          </Button>
+        )}
+
+        <Button
+          type="submit"
+          size="icon"
+          variant="ghost"
+          className="h-9 w-9 rounded-full bg-zinc-900 hover:bg-zinc-800 text-white transition-colors"
+        >
+          <Search className="w-4 h-4" />
+        </Button>
+      </div>
     </form>
   );
 }

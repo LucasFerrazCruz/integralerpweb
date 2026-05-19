@@ -1,28 +1,28 @@
 "use client";
 
 import { ReactNode, Suspense } from "react";
-import Sidebar from "@/components/layout/Sidebar";
-import Topbar from "@/components/layout/Topbar";
 import { Toaster } from "@/components/ui/sonner";
+import { Header } from "@/components/layout/Header";
 
-export default function ERPLayout({ children }: { children: ReactNode }) {
+export default function MainLayout({ children }: { children: ReactNode }) {
   return (
-    <div className="flex h-screen bg-gray-50">
-      <Sidebar />
+    <div className="min-h-screen bg-gray-50 flex flex-col">
+      {/* O Header agora contém toda a navegação */}
+      <Header />
 
-      <div className="flex flex-1 flex-col overflow-hidden">
-        <Suspense fallback={<div className="w-64 bg-white border-r" />}>
-          <Topbar />
-        </Suspense>
+      <main className="flex-1 w-full">
+        <div className="p-2 md:p-8 max-w-[1400px] mx-auto w-full">
+          <Suspense fallback={<div>Carregando...</div>}>{children}</Suspense>
+        </div>
+      </main>
 
-        <main className="flex-1 overflow-y-auto">
-          <div className="p-6">
-            <Suspense fallback={<div>Carregando...</div>}>{children}</Suspense>
-          </div>
-        </main>
-      </div>
-
-      <Toaster richColors closeButton position="top-right" />
+      <Toaster
+        richColors
+        closeButton
+        position="bottom-right"
+        duration={2500}
+        visibleToasts={3}
+      />
     </div>
   );
 }

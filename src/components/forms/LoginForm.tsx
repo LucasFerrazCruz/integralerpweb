@@ -40,7 +40,11 @@ export default function LoginForm() {
       toast.error("Email ou senha inválidos");
     } else {
       toast.success("Login realizado!");
-      router.replace("/catalogo/produtos");
+
+      const params = new URLSearchParams(window.location.search);
+      const callbackUrl = params.get("callbackUrl") || "/catalogo/produtos";
+
+      router.push(callbackUrl);
       router.refresh();
     }
   }

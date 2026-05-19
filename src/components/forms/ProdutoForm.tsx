@@ -20,6 +20,7 @@ import {
   DollarSign,
 } from "lucide-react";
 import { Textarea } from "../ui/textarea";
+import { ModalNovaCategoria } from "../modals/NovaCategoriaModal";
 
 export default function ProdutoForm({ produtoId }: { produtoId?: string }) {
   const router = useRouter();
@@ -51,6 +52,8 @@ export default function ProdutoForm({ produtoId }: { produtoId?: string }) {
   const [preview, setPreview] = useState<string | null>(null);
   const [categorias, setCategorias] = useState<Categoria[]>([]);
   const [salvando, setSalvando] = useState(false);
+
+  const [isModalCategoriaOpen, setIsModalCategoriaOpen] = useState(false);
 
   useEffect(() => {
     carregarCategorias();
@@ -147,16 +150,6 @@ export default function ProdutoForm({ produtoId }: { produtoId?: string }) {
     } finally {
       setSalvando(false);
     }
-  }
-
-  async function criarCategoria() {
-    const nomeCategoria = prompt("Nome da categoria");
-
-    if (!nomeCategoria) return;
-
-    await categoriaService.criar(nomeCategoria);
-
-    await carregarCategorias();
   }
 
   async function uploadImagem() {
@@ -363,17 +356,6 @@ export default function ProdutoForm({ produtoId }: { produtoId?: string }) {
                   </option>
                 ))}
               </select>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => {
-                  const n = prompt("Nova Categoria:");
-                  if (n) categoriaService.criar(n).then(carregarCategorias);
-                }}
-              >
-                {" "}
-                +{" "}
-              </Button>
             </div>
           </div>
 
