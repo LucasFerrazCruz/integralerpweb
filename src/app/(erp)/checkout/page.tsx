@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useCallback, useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -13,7 +13,10 @@ import { useSession } from "next-auth/react";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Barcode, CreditCard, QrCode } from "lucide-react";
+import { Barcode, CreditCard, Loader2, QrCode } from "lucide-react";
+import CartaoBrick from "@/components/forms/CartaoBrick";
+import { pagamentoService } from "@/services/pagamentoService";
+import { traduzirStatusMercadoPago } from "@/utils/mercadoPagoErrors";
 
 interface OpcaoFrete {
   nomeServico: string;
@@ -24,7 +27,8 @@ interface OpcaoFrete {
 
 export default function CheckoutPage() {
   const { data: session, status } = useSession();
-  const { carrinho, loading, limparCarrinho } = useCarrinho();
+  const { carrinho, limparCarrinho } = useCarrinho();
+  const router = useRouter();
 
   const [endereco, setEndereco] = useState({
     cep: "",
@@ -36,22 +40,28 @@ export default function CheckoutPage() {
     uf: "",
     apelido: "Casa",
   });
+  const [dadosPagador, setDadosPagador] = useState({
+    cpfCnpj: "",
+    email: "",
+  });
+  const [formaPagamento, setFormaPagamento] = useState<string>("");
+
   const [buscandoCep, setBuscandoCep] = useState(false);
   const [finalizando, setFinalizando] = useState(false);
+  const [processandoPagamento, setProcessandoPagamento] = useState(false);
+  const [pedidoCriado, setPedidoCriado] = useState<any>(null);
 
-  const [formaPagamento, setFormaPagamento] = useState<string>("");
+  const [loading, setLoading] = useState(false);
+  const params = useSearchParams();
+
+  const [totalPedido, setTotalPedido] = useState(0);
+  const pedidoId = params.get("pedidoId");
 
   const [opcoesFrete, setOpcoesFrete] = useState<OpcaoFrete[]>([]);
   const [carregandoFrete, setCarregandoFrete] = useState(false);
   const [freteSelecionado, setFreteSelecionado] = useState<OpcaoFrete | null>(
     null,
   );
-  const [dadosPagador, setDadosPagador] = useState({
-    cpfCnpj: "",
-    email: "",
-  });
-
-  const router = useRouter();
 
   useEffect(() => {
     if (status === "unauthenticated") {
@@ -59,15 +69,6 @@ export default function CheckoutPage() {
       router.push("/login?callbackUrl=/checkout"); // Redireciona e volta após login
     }
   }, [status, router]);
-
-  if (status === "loading" || loading) {
-    return (
-      <div className="flex flex-col items-center justify-center p-20 space-y-4">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-        <p>Validando acesso e carregando carrinho...</p>
-      </div>
-    );
-  }
 
   if (status === "unauthenticated") return null;
   if (!carrinho)
@@ -84,13 +85,116 @@ export default function CheckoutPage() {
     );
   }
 
+  const handleCartao = useCallback(
+    async (data: any) => {
+      if (!pedidoCriado) return;
+
+      try {
+        setProcessandoPagamento(true);
+
+        const payload = {
+          pedidoId: Number(pedidoCriado.id),
+          token: data.token,
+          paymentMethodId: data.paymentMethodId,
+          installments: data.installments,
+          email: data.cardholderEmail,
+        };
+
+        const res = await pagamentoService.pagarCartao(
+          Number(pedidoCriado.id),
+          payload,
+        );
+
+        if (res.status === "approved") {
+          toast.success("Pagamento aprovado!");
+          router.push("/pedidos");
+        } else {
+          const erroTecnico = res.statusDetail || res.detalheStatus || "";
+          const mensagemAmigavel = traduzirStatusMercadoPago(erroTecnico);
+
+          toast.error(`Pagamento recusado: ${mensagemAmigavel}`, {
+            duration: 6000, // Dá mais tempo para o usuário ler instruções como "ligar para o banco"
+          });
+        }
+      } catch (e) {
+        console.error(e);
+        toast.error("Erro ao pagar com cartão");
+      } finally {
+        setProcessandoPagamento(false);
+      }
+    },
+    [pedidoCriado, router, limparCarrinho],
+  );
+
+  // Validações antes de submeter
+  function validarDados() {
+    if (!endereco.cep || !endereco.numero)
+      return "CEP e Número são obrigatórios";
+    if (!freteSelecionado) return "Selecione uma opção de frete";
+    if (!formaPagamento) return "Selecione uma forma de pagamento";
+    if (
+      (formaPagamento === "PIX" || formaPagamento === "BOLETO") &&
+      (!dadosPagador.email || !dadosPagador.cpfCnpj)
+    ) {
+      return "E-mail e CPF/CNPJ são obrigatórios para esta forma de pagamento";
+    }
+    return null;
+  }
+
+  // Função disparada pelo botão principal do resumo
+  async function iniciarFluxoFinalizacao() {
+    const erroValidacao = validarDados();
+    if (erroValidacao) {
+      toast.error(erroValidacao);
+      return;
+    }
+
+    try {
+      setFinalizando(true);
+
+      // 1. Cria o pedido no banco primeiro
+      const pedido = await pedidoService.criar({
+        endereco: endereco,
+        formaPagamento,
+        valorFrete: freteSelecionado?.valor || 0,
+        transportadora: `${freteSelecionado?.empresa} - ${freteSelecionado?.nomeServico}`,
+      });
+
+      setPedidoCriado(pedido);
+
+      // 2. Decide o destino com base na forma de pagamento
+      if (formaPagamento === "CARTAO_CREDITO") {
+        // Se for cartão, a gente NÃO muda de página.
+        // O estado `pedidoCriado` vai destravar a renderização do CardBrick na mesma tela de forma fluida.
+        toast.success(
+          "Pedido registrado! Insira os dados do cartão para finalizar.",
+        );
+      } else {
+        // Se for PIX ou BOLETO, limpa carrinho e vai para a página de instrução de pagamento
+        if (limparCarrinho) await limparCarrinho();
+
+        const params = new URLSearchParams({
+          pedidoId: pedido.id.toString(),
+          tipo: formaPagamento,
+          email: dadosPagador.email,
+          cpf: dadosPagador.cpfCnpj,
+        });
+        router.push(`/checkout/pagamento?${params.toString()}`);
+      }
+    } catch (err) {
+      toast.error("Erro ao registrar pedido.");
+    } finally {
+      setFinalizando(false);
+    }
+  }
+
   async function calcularFrete(cepDestino: string) {
     try {
       setCarregandoFrete(true);
       setFreteSelecionado(null);
       const dados = await freteService.calcular({ cepDestino });
       setOpcoesFrete(dados);
-    } catch (error) {
+    } catch {
       toast.error("Não foi possível calcular o frete.");
     } finally {
       setCarregandoFrete(false);
@@ -121,7 +225,7 @@ export default function CheckoutPage() {
         }));
 
         calcularFrete(cep);
-      } catch (error) {
+      } catch {
         toast.error("Erro ao buscar CEP.");
       } finally {
         setBuscandoCep(false);
@@ -129,57 +233,13 @@ export default function CheckoutPage() {
     }
   };
 
-  async function finalizarPedido() {
-    if (!endereco.cep || !endereco.numero) {
-      toast.error("CEP e Número são obrigatórios");
-      return;
-    }
-    if (!freteSelecionado) {
-      toast.error("Selecione uma opção de frete");
-      return;
-    }
-    if (!formaPagamento) {
-      toast.error("Selecione uma forma de pagamento");
-      return;
-    }
-    if (
-      (formaPagamento === "PIX" || formaPagamento === "BOLETO") &&
-      (!dadosPagador.email || !dadosPagador.cpfCnpj)
-    ) {
-      toast.error(
-        "E-mail e CPF/CNPJ são obrigatórios para esta forma de pagamento",
-      );
-      return;
-    }
-
-    try {
-      setFinalizando(true);
-
-      const pedido = await pedidoService.criar({
-        endereco: endereco,
-        formaPagamento,
-        // valorFrete: freteSelecionado.valor,
-        valorFrete: 0,
-        transportadora: `${freteSelecionado.empresa} - ${freteSelecionado.nomeServico}`,
-      });
-
-      if (limparCarrinho) {
-        await limparCarrinho();
-      }
-
-      const params = new URLSearchParams({
-        pedidoId: pedido.id.toString(),
-        tipo: formaPagamento,
-        email: dadosPagador.email, // Passando o e-mail digitado
-        cpf: dadosPagador.cpfCnpj, // Passando o CPF digitado
-      });
-
-      router.push(`/checkout/pagamento?${params.toString()}`);
-    } catch {
-      toast.error("Erro ao finalizar pedido");
-    } finally {
-      setFinalizando(false);
-    }
+  if (status === "loading" || !carrinho) {
+    return (
+      <div className="flex flex-col items-center justify-center p-20 space-y-4">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <p>Carregando checkout...</p>
+      </div>
+    );
   }
 
   const valorTotalComFrete = carrinho.total + (freteSelecionado?.valor || 0);
@@ -189,10 +249,12 @@ export default function CheckoutPage() {
       <h1 className="text-2xl font-bold tracking-tight">Finalizar Compra</h1>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
-        {/* COLUNA ESQUERDA: DADOS DE ENTREGA E PAGAMENTO */}
+        {/* COLUNA ESQUERDA: FORMULÁRIOS */}
         <div className="lg:col-span-2 space-y-6">
-          {/* 1. ENDEREÇO */}
-          <Card className="shadow-sm">
+          {/* 1. ENDEREÇO (Fica desativado após gerar o pedido para evitar mudanças) */}
+          <Card
+            className={`shadow-sm ${pedidoCriado ? "opacity-60 pointer-events-none" : ""}`}
+          >
             <CardContent className="p-6 space-y-4">
               <h2 className="font-semibold text-lg flex items-center gap-2 border-b pb-3">
                 <span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary text-xs font-bold text-primary-foreground">
@@ -282,7 +344,9 @@ export default function CheckoutPage() {
           </Card>
 
           {/* 2. FRETE */}
-          <Card className="shadow-sm">
+          <Card
+            className={`shadow-sm ${pedidoCriado ? "opacity-60 pointer-events-none" : ""}`}
+          >
             <CardContent className="p-6 space-y-4">
               <h2 className="font-semibold text-lg flex items-center gap-2 border-b pb-3">
                 <span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary text-xs font-bold text-primary-foreground">
@@ -292,7 +356,7 @@ export default function CheckoutPage() {
               </h2>
               {carregandoFrete && (
                 <p className="text-sm text-muted-foreground animate-pulse">
-                  Calculando opções...
+                  Calculando...
                 </p>
               )}
               {!carregandoFrete && opcoesFrete.length === 0 && (
@@ -328,7 +392,7 @@ export default function CheckoutPage() {
             </CardContent>
           </Card>
 
-          {/* 3. PAGAMENTO ESTILO PAYMENT BRICK */}
+          {/* 3. FORMA DE PAGAMENTO */}
           <Card className="shadow-sm">
             <CardContent className="p-6 space-y-4">
               <h2 className="font-semibold text-lg flex items-center gap-2 border-b pb-3">
@@ -340,10 +404,12 @@ export default function CheckoutPage() {
 
               <RadioGroup
                 value={formaPagamento}
-                onValueChange={(value) => setFormaPagamento(value)}
-                className="space-y-3"
+                onValueChange={(value) =>
+                  !pedidoCriado && setFormaPagamento(value)
+                }
+                className={`space-y-3 ${pedidoCriado ? "opacity-60 pointer-events-none" : ""}`}
               >
-                {/* OPÇÃO: PIX */}
+                {/* PIX */}
                 <div
                   className={`border rounded-xl transition-all ${formaPagamento === "PIX" ? "border-primary ring-2 ring-primary/20 bg-muted/20" : "hover:bg-muted/30"}`}
                 >
@@ -354,14 +420,12 @@ export default function CheckoutPage() {
                         <QrCode className="h-4 w-4 text-blue-600" /> Pix
                       </div>
                     </div>
-                    <span className="text-xs bg-green-100 text-green-700 font-semibold px-2 py-0.5 rounded animate-pulse">
+                    <span className="text-xs bg-green-100 text-green-700 font-semibold px-2 py-0.5 rounded">
                       Aprovação imediata
                     </span>
                   </label>
-
-                  {/* CONTEÚDO EXPANSÍVEL PIX */}
                   {formaPagamento === "PIX" && (
-                    <div className="p-4 border-t bg-muted/10 grid grid-cols-1 md:grid-cols-2 gap-4 animate-in fade-in slide-in-from-top-1 duration-200">
+                    <div className="p-4 border-t bg-muted/10 grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div className="space-y-1">
                         <Label className="text-xs">
                           E-mail para o comprovante
@@ -398,7 +462,7 @@ export default function CheckoutPage() {
                   )}
                 </div>
 
-                {/* OPÇÃO: CARTÃO DE CRÉDITO */}
+                {/* CARTÃO DE CRÉDITO */}
                 <div
                   className={`border rounded-xl transition-all ${formaPagamento === "CARTAO_CREDITO" ? "border-primary ring-2 ring-primary/20 bg-muted/20" : "hover:bg-muted/30"}`}
                 >
@@ -411,17 +475,9 @@ export default function CheckoutPage() {
                       </div>
                     </div>
                   </label>
-
-                  {/* CONTEÚDO EXPANSÍVEL CARTÃO */}
-                  {formaPagamento === "CARTAO_CREDITO" && (
-                    <div className="p-4 border-t bg-muted/10 text-xs text-muted-foreground animate-in fade-in duration-200">
-                      Os dados do seu cartão serão solicitados com total
-                      segurança na próxima etapa de confirmação.
-                    </div>
-                  )}
                 </div>
 
-                {/* OPÇÃO: BOLETO */}
+                {/* BOLETO */}
                 <div
                   className={`border rounded-xl transition-all ${formaPagamento === "BOLETO" ? "border-primary ring-2 ring-primary/20 bg-muted/20" : "hover:bg-muted/30"}`}
                 >
@@ -434,10 +490,8 @@ export default function CheckoutPage() {
                       </div>
                     </div>
                   </label>
-
-                  {/* CONTEÚDO EXPANSÍVEL BOLETO */}
                   {formaPagamento === "BOLETO" && (
-                    <div className="p-4 border-t bg-muted/10 grid grid-cols-1 md:grid-cols-2 gap-4 animate-in fade-in slide-in-from-top-1 duration-200">
+                    <div className="p-4 border-t bg-muted/10 grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div className="space-y-1">
                         <Label className="text-xs">
                           E-mail para envio do boleto
@@ -474,18 +528,37 @@ export default function CheckoutPage() {
                   )}
                 </div>
               </RadioGroup>
+
+              {/* AREA EXPANSÍVEL DO CARTÃO APÓS O PEDIDO GERADO */}
+              {formaPagamento === "CARTAO_CREDITO" && pedidoCriado && (
+                <div className="p-4 border border-purple-300 rounded-xl bg-white mt-4 animate-in slide-in-from-top-2 duration-200">
+                  <h3 className="text-sm font-semibold text-purple-800 mb-3">
+                    Dados do Cartão (Pedido #{pedidoCriado.id})
+                  </h3>
+                  <CartaoBrick
+                    key={`card-brick-${pedidoCriado.id}`}
+                    amount={valorTotalComFrete} // O valor total real calculado em tempo de execução
+                    onToken={handleCartao}
+                  />
+                  {processandoPagamento && (
+                    <div className="flex items-center justify-center gap-2 mt-2 text-xs text-purple-600">
+                      <Loader2 className="h-3 w-3 animate-spin" /> Processando
+                      transação com o banco...
+                    </div>
+                  )}
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>
 
-        {/* COLUNA DIREITA: RESUMO DE COMPRA FIXO */}
+        {/* COLUNA DIREITA: RESUMO */}
         <div className="space-y-4 lg:sticky lg:top-4">
           <Card className="shadow-sm border-t-4 border-t-primary">
             <CardContent className="p-6 space-y-4">
               <h2 className="font-bold text-lg border-b pb-2">
                 Resumo do Pedido
               </h2>
-
               <div className="space-y-2 text-sm">
                 <div className="flex justify-between text-muted-foreground">
                   <span>Itens do carrinho</span>
@@ -506,23 +579,37 @@ export default function CheckoutPage() {
                 <span>R$ {valorTotalComFrete.toFixed(2)}</span>
               </div>
 
-              <Button
-                size="lg"
-                className="w-full mt-2 font-semibold shadow-sm"
-                disabled={
-                  finalizando ||
-                  !freteSelecionado ||
-                  !formaPagamento ||
-                  carregandoFrete
-                }
-                onClick={finalizarPedido}
-              >
-                {finalizando
-                  ? "Processando..."
-                  : formaPagamento === "CARTAO_CREDITO"
-                    ? "Ir para Dados do Cartão"
-                    : "Confirmar e Gerar Código"}
-              </Button>
+              {/* Só exibe o botão principal se o pedido de cartão ainda não tiver sido criado */}
+              {!pedidoCriado && (
+                <Button
+                  size="lg"
+                  className="w-full mt-2 font-semibold shadow-sm"
+                  disabled={
+                    finalizando ||
+                    !freteSelecionado ||
+                    !formaPagamento ||
+                    carregandoFrete
+                  }
+                  onClick={iniciarFluxoFinalizacao}
+                >
+                  {finalizando ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />{" "}
+                      Registrando...
+                    </>
+                  ) : formaPagamento === "CARTAO_CREDITO" ? (
+                    "Liberar Dados do Cartão"
+                  ) : (
+                    "Confirmar e Gerar Código"
+                  )}
+                </Button>
+              )}
+
+              {pedidoCriado && formaPagamento === "CARTAO_CREDITO" && (
+                <p className="text-center text-xs text-muted-foreground mt-2 font-medium text-purple-600">
+                  Preencha o formulário acima para concluir.
+                </p>
+              )}
             </CardContent>
           </Card>
         </div>
