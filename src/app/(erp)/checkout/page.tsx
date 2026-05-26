@@ -162,6 +162,7 @@ export default function CheckoutPage() {
           nomePagador: dadosPagador.nomeCompleto,
           email: dadosPagador.email,
           cpf: dadosPagador.cpfCnpj,
+          zipCode: endereco.cep,
         });
         router.push(`/checkout/pagamento?${urlParams.toString()}`);
       }
@@ -426,9 +427,7 @@ export default function CheckoutPage() {
                   {formaPagamento === "PIX" && (
                     <div className="p-4 border-t bg-muted/10 grid grid-cols-1 gap-4">
                       <div className="space-y-1">
-                        <Label className="text-xs">
-                          Nome Completo do Pagador
-                        </Label>
+                        <Label className="text-xs">Nome Completo</Label>
                         <Input
                           type="text"
                           disabled={!!pedidoCriado}
@@ -444,9 +443,7 @@ export default function CheckoutPage() {
                       </div>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div className="space-y-1">
-                          <Label className="text-xs">
-                            E-mail para o comprovante
-                          </Label>
+                          <Label className="text-xs">E-mail</Label>
                           <Input
                             type="email"
                             disabled={!!pedidoCriado}
@@ -461,9 +458,7 @@ export default function CheckoutPage() {
                           />
                         </div>
                         <div className="space-y-1">
-                          <Label className="text-xs">
-                            CPF ou CNPJ do pagador
-                          </Label>
+                          <Label className="text-xs">CPF/CNPJ</Label>
                           <Input
                             type="text"
                             disabled={!!pedidoCriado}

@@ -21,6 +21,7 @@ export function PagamentoContent() {
   const nomePagador = params.get("nomePagador") || "";
   const email = params.get("email") || "";
   const cpf = params.get("cpf") || "";
+  const zipCode = params.get("zipCode") || "";
 
   const [pix, setPix] = useState<any>(null);
   const [loading, setLoading] = useState(false);
@@ -149,7 +150,12 @@ export function PagamentoContent() {
     async function dispararCargaBoleto() {
       setBoletoCarregado(true);
       try {
-        const data = await pagamentoService.gerarBoleto(idPedidoNum);
+        const data = await pagamentoService.gerarBoleto(idPedidoNum, {
+          nomePagador: nomePagador,
+          email: email,
+          cpfCnpj: cpf,
+          zipCode: zipCode,
+        });
         setBoleto(data);
       } catch (e) {
         console.error("Erro ao carregar boleto", e);
@@ -158,7 +164,16 @@ export function PagamentoContent() {
     }
 
     dispararCargaBoleto();
-  }, [pedidoId, idPedidoNum, tipo, boletoCarregado]);
+  }, [
+    pedidoId,
+    idPedidoNum,
+    tipo,
+    boletoCarregado,
+    nomePagador,
+    email,
+    cpf,
+    zipCode,
+  ]);
 
   // Simulador local para testes em ambiente de desenvolvimento
   async function simularPagamento() {

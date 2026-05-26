@@ -26,8 +26,19 @@ export const pagamentoService = {
     return response.data;
   },
 
-  async gerarBoleto(pedidoId: number): Promise<BoletoData> {
-    const { data } = await api.post(`/api/pagamentos/${pedidoId}/boleto`);
+  async gerarBoleto(
+    pedidoId: number,
+    dadosBoleto: {
+      nomePagador: string;
+      email: string;
+      cpfCnpj: string;
+      zipCode: string;
+    },
+  ): Promise<BoletoData> {
+    const { data } = await api.post(
+      `/api/pagamentos/${pedidoId}/boleto`,
+      dadosBoleto,
+    );
     return data;
   },
 
