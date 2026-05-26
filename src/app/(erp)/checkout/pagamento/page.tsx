@@ -1,15 +1,14 @@
 "use client";
 
-import CartaoBrick from "@/components/forms/CartaoBrick";
 import { BoletoArea } from "@/components/layout/BoletoArea";
 import { Button } from "@/components/ui/button";
 import { pagamentoService } from "@/services/pagamentoService";
 import { pedidoService } from "@/services/pedidoService";
 import { BoletoData } from "@/types/Pagamento";
-import { traduzirStatusMercadoPago } from "@/utils/mercadoPagoErrors";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Suspense, useCallback, useEffect, useRef, useState } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
+import { Loader2 } from "lucide-react";
 
 export function PagamentoContent() {
   const params = useSearchParams();
@@ -18,6 +17,8 @@ export function PagamentoContent() {
   const pedidoId = params.get("pedidoId");
   const tipo = params.get("tipo");
 
+  // Captura os dados que vieram do formulário da CheckoutPage
+  const nomePagador = params.get("nomePagador") || "";
   const email = params.get("email") || "";
   const cpf = params.get("cpf") || "";
 
@@ -29,16 +30,16 @@ export function PagamentoContent() {
   const [boleto, setBoleto] = useState<BoletoData | null>(null);
   const [boletoCarregado, setBoletoCarregado] = useState(false);
 
-  const carregandoPixRef = useRef(false); // Trava síncrona
+  const idPedidoNum = Number(pedidoId);
+  const carregandoPixRef = useRef(false);
 
-  console.log("Tipo atual:", tipo);
-
+  // 1. Validar e carregar dados básicos do pedido
   useEffect(() => {
     if (!pedidoId) return;
 
     async function carregarDadosPedido() {
       try {
-        const pedido = await pedidoService.buscarPorId(Number(pedidoId));
+        const pedido = await pedidoService.buscarPorId(idPedidoNum);
 
         if (pedido.status === "PAGO") {
           toast.info("Este pedido já foi pago!");
@@ -54,18 +55,21 @@ export function PagamentoContent() {
     }
 
     carregarDadosPedido();
-  }, [pedidoId]);
+  }, [pedidoId, idPedidoNum, router]);
 
-  // pix
+  // 2. Fluxo de geração do PIX
   useEffect(() => {
-    if (!pedidoId || tipo != "PIX" || pixCarregado || carregandoPixRef.current)
+    if (!pedidoId || tipo !== "PIX" || pixCarregado || carregandoPixRef.current)
       return;
 
     async function carregarPix() {
       try {
-        carregandoPixRef.current = true; // Bloqueia imediatamente o próximo ciclo
+        carregandoPixRef.current = true;
         setPixCarregado(true);
-        const data = await pagamentoService.gerarPix(Number(pedidoId), {
+
+        // 🚀 AGORA PASSANDO O NOME CORRETAMENTE PARA O BACKEND
+        const data = await pagamentoService.gerarPix(idPedidoNum, {
+          nomePagador: nomePagador,
           emailPagador: email,
           cpfPagador: cpf,
         });
@@ -82,23 +86,24 @@ export function PagamentoContent() {
     }
 
     carregarPix();
-  }, [pedidoId, tipo, pixCarregado]);
+  }, [pedidoId, tipo, pixCarregado, idPedidoNum, nomePagador, email, cpf]);
 
-  // STATUS (PIX polling)
+  // 3. Polling de checagem de status do PIX (5 em 5 segundos)
   useEffect(() => {
     if (!pedidoId || tipo !== "PIX" || !pix || tempoRestante === "Expirado")
       return;
 
     const interval = setInterval(async () => {
       try {
-        const status = await pagamentoService.status(Number(pedidoId));
+        const status = await pagamentoService.status(idPedidoNum);
 
-        if (status.status === "APROVADO") {
-          toast.success("Pagamento aprovado!");
+        if (status.status === "APROVADO" || status.status === "approved") {
+          toast.success("Pagamento aprovado com sucesso!");
+          clearInterval(interval);
           router.push("/pedidos");
         }
 
-        if (status.status === "CANCELADO") {
+        if (status.status === "CANCELADO" || status.status === "cancelled") {
           setTempoRestante("Expirado");
           toast.error("Este pagamento expirou ou foi cancelado.");
           clearInterval(interval);
@@ -109,12 +114,12 @@ export function PagamentoContent() {
     }, 5000);
 
     return () => clearInterval(interval);
-  }, [pedidoId, tipo, router, tempoRestante, pix]);
+  }, [pedidoId, idPedidoNum, tipo, router, tempoRestante, pix]);
 
+  // 4. Countdown do Cronômetro do PIX
   useEffect(() => {
     if (!pix?.dataExpiracao) return;
 
-    // Convertemos a string de expiração para um número fixo (timestamp)
     const dataExpiracaoTimestamp = new Date(pix.dataExpiracao).getTime();
 
     const interval = setInterval(() => {
@@ -127,28 +132,25 @@ export function PagamentoContent() {
         return;
       }
 
-      // Cálculo preciso de minutos e segundos
       const totalSegundos = Math.floor(diferenca / 1000);
       const minutos = Math.floor(totalSegundos / 60);
       const segundos = totalSegundos % 60;
 
       setTempoRestante(`${minutos}:${segundos < 10 ? "0" : ""}${segundos}`);
-
-      console.log(pix.dataExpiracao);
-      console.log(new Date().toISOString());
     }, 1000);
 
     return () => clearInterval(interval);
   }, [pix?.dataExpiracao]);
 
-  // renderizar boleto
+  // 5. Fluxo de geração do BOLETO
   useEffect(() => {
     if (!pedidoId || tipo !== "BOLETO" || boletoCarregado) return;
 
     async function dispararCargaBoleto() {
       setBoletoCarregado(true);
       try {
-        await carregarBoleto();
+        const data = await pagamentoService.gerarBoleto(idPedidoNum);
+        setBoleto(data);
       } catch (e) {
         console.error("Erro ao carregar boleto", e);
         toast.error("Erro ao gerar boleto bancário");
@@ -156,101 +158,64 @@ export function PagamentoContent() {
     }
 
     dispararCargaBoleto();
-  }, [pedidoId, tipo, boletoCarregado]);
+  }, [pedidoId, idPedidoNum, tipo, boletoCarregado]);
 
+  // Simulador local para testes em ambiente de desenvolvimento
   async function simularPagamento() {
     try {
       setLoading(true);
-
-      await pagamentoService.simular(Number(pedidoId));
-
-      toast.success("Pagamento aprovado!");
-
+      await pagamentoService.simular(idPedidoNum);
+      toast.success("Pagamento simulado e aprovado!");
       router.push("/pedidos");
     } catch {
-      toast.error("Erro no pagamento");
+      toast.error("Erro ao simular pagamento");
     } finally {
       setLoading(false);
     }
   }
 
-  const handleCartao = useCallback(
-    async (data: any) => {
-      try {
-        setLoading(true);
-
-        console.log("DEBUG: Dados brutos do Brick:", data);
-
-        const payload = {
-          pedidoId: Number(pedidoId),
-          token: data.token,
-          paymentMethodId: data.paymentMethodId,
-          installments: data.installments,
-          email: data.cardholderEmail,
-        };
-
-        console.log("DEBUG: Payload enviado para o Java:", payload);
-
-        const res = await pagamentoService.pagarCartao(
-          Number(pedidoId),
-          payload,
-        );
-
-        if (res.status === "approved") {
-          toast.success("Pagamento aprovado!");
-          router.push("/pedidos");
-        } else {
-          const erroTecnico = res.statusDetail || res.detalheStatus || "";
-          const mensagemAmigavel = traduzirStatusMercadoPago(erroTecnico);
-
-          toast.error(`Pagamento recusado: ${mensagemAmigavel}`, {
-            duration: 6000, // Dá mais tempo para o usuário ler instruções como "ligar para o banco"
-          });
-        }
-      } catch (e) {
-        console.error(e);
-        toast.error("Erro ao pagar com cartão");
-      } finally {
-        setLoading(false);
-      }
-    },
-    [pedidoId, router],
-  );
-
-  async function carregarBoleto() {
-    const data = await pagamentoService.gerarBoleto(Number(pedidoId));
-    console.log("Chegou do Java:", data);
-    setBoleto(data);
-  }
-
   if (!pedidoId || !tipo) {
-    return <p className="p-8">Dados de pagamento inválidos</p>;
+    return (
+      <p className="p-8 text-center text-red-500">
+        Dados de pagamento inválidos
+      </p>
+    );
   }
 
   return (
-    <div className="p-8 max-w-xl mx-auto space-y-6">
-      <h1 className="text-2xl font-bold">Pagamento</h1>
-      <p className="text-muted-foreground">Pedido #{pedidoId}</p>
+    <div className="p-4 md:p-8 max-w-xl mx-auto space-y-6">
+      <div className="text-center space-y-2">
+        <h1 className="text-2xl font-bold tracking-tight">
+          Finalize o seu Pagamento
+        </h1>
+        <p className="text-muted-foreground text-sm">Pedido #{pedidoId}</p>
+      </div>
 
-      {/* ===================== PIX ==================== */}
+      {/* ===================== RENDERIZAÇÃO PIX ==================== */}
       {tipo === "PIX" && (
         <div className="space-y-4">
           {!pix ? (
-            <p className="text-center animate-pulse">Gerando QR Code...</p>
+            <div className="flex flex-col items-center justify-center p-8 space-y-4">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              <p className="text-sm text-muted-foreground animate-pulse">
+                Gerando seu QR Code Pix do Mercado Pago...
+              </p>
+            </div>
           ) : (
-            <div className="space-y-4 text-center">
-              {/* Banner de Expiração */}
+            <div className="space-y-5 text-center">
               {tempoRestante === "Expirado" ? (
-                <div className="p-6 bg-red-50 border border-red-200 text-red-700 rounded-lg shadow-sm">
+                <div className="p-6 bg-red-50 border border-red-200 text-red-700 rounded-xl shadow-sm space-y-3">
                   <p className="font-bold text-lg">O código Pix expirou!</p>
-                  <p className="text-sm mb-4">
-                    Para concluir a compra, gere um novo código.
+                  <p className="text-xs">
+                    Para concluir a sua compra, será necessário gerar um novo
+                    código de pagamento.
                   </p>
                   <Button
                     onClick={() => {
                       setPix(null);
                       setPixCarregado(false);
                       setTempoRestante("");
+                      carregandoPixRef.current = false;
                     }}
                     className="bg-red-600 hover:bg-red-700 text-white"
                   >
@@ -259,39 +224,37 @@ export function PagamentoContent() {
                 </div>
               ) : (
                 <>
-                  {/* Cronômetro Ativo */}
                   <div className="bg-slate-50 border border-dashed border-slate-300 p-4 rounded-xl">
-                    <p className="text-xs uppercase tracking-widest text-slate-500 mb-1">
-                      Aguardando pagamento...
+                    <p className="text-xs uppercase tracking-widest text-slate-500 mb-1 flex items-center justify-center gap-2">
+                      <Loader2 className="h-3 w-3 animate-spin text-blue-600" />{" "}
+                      Aguardando detecção do pagamento...
                     </p>
-                    <div className="flex items-center justify-center gap-2">
-                      <span className="text-3xl font-mono font-bold text-blue-600">
-                        {tempoRestante}
-                      </span>
+                    <div className="text-3xl font-mono font-bold text-blue-600 mt-1">
+                      {tempoRestante || "30:00"}
                     </div>
-                    <p className="text-[10px] text-slate-400 mt-2">
-                      O código expira em 30 minutos
-                    </p>
                   </div>
 
-                  <p className="text-lg font-semibold">
-                    Total: R$ {Number(pix.valor).toFixed(2)}
-                  </p>
+                  <div className="text-xl font-bold text-foreground">
+                    Total a pagar: R${" "}
+                    {Number(pix.valor || totalPedido).toFixed(2)}
+                  </div>
 
                   {pix.qrCodeBase64 && (
-                    <img
-                      src={`data:image/png;base64,${pix.qrCodeBase64}`}
-                      className="w-64 mx-auto border p-2 rounded-lg bg-white"
-                      alt="QR Code Pix"
-                    />
+                    <div className="bg-white p-3 border rounded-xl inline-block shadow-sm">
+                      <img
+                        src={`data:image/png;base64,${pix.qrCodeBase64}`}
+                        className="w-56 h-56 mx-auto"
+                        alt="QR Code Pix Mercado Pago"
+                      />
+                    </div>
                   )}
 
-                  <div className="space-y-2">
-                    <p className="text-xs text-left text-muted-foreground">
-                      Copia e cola:
-                    </p>
+                  <div className="space-y-1 text-left">
+                    <label className="text-xs font-semibold text-muted-foreground">
+                      Código Copia e Cola:
+                    </label>
                     <textarea
-                      className="w-full border p-2 text-[10px] rounded bg-gray-50 font-mono"
+                      className="w-full border p-2 text-[11px] rounded-lg bg-slate-50 font-mono text-slate-600 focus:outline-none"
                       value={pix.qrCode || ""}
                       readOnly
                       rows={3}
@@ -299,25 +262,27 @@ export function PagamentoContent() {
                   </div>
 
                   <Button
-                    className="w-full bg-blue-600 hover:bg-blue-700"
+                    className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold shadow-sm"
                     onClick={() => {
                       navigator.clipboard.writeText(pix.qrCode);
-                      toast.success("Código copiado!");
+                      toast.success("Código Copia e Cola copiado!");
                     }}
                   >
                     Copiar Código Pix
                   </Button>
 
-                  <hr />
-
-                  <Button
-                    variant="outline"
-                    className="w-full"
-                    onClick={simularPagamento}
-                    disabled={loading}
-                  >
-                    {loading ? "Processando..." : "Já paguei (Simular)"}
-                  </Button>
+                  <div className="pt-2 border-t border-dashed">
+                    <Button
+                      variant="ghost"
+                      className="w-full text-xs text-muted-foreground hover:text-foreground"
+                      onClick={simularPagamento}
+                      disabled={loading}
+                    >
+                      {loading
+                        ? "Processando..."
+                        : "Ambiente de Teste: Ativar Simulação de Pagamento"}
+                    </Button>
+                  </div>
                 </>
               )}
             </div>
@@ -325,29 +290,20 @@ export function PagamentoContent() {
         </div>
       )}
 
-      {/* =============== CARTÃO (CRÉDITO OU DÉBITO) =============== */}
-
-      {(tipo === "CARTAO_CREDITO" || tipo === "CARTAO_DEBITO") && (
-        <>
-          {totalPedido > 0 ? (
-            <CartaoBrick
-              key={`${pedidoId}-${tipo}`}
-              amount={totalPedido}
-              onToken={handleCartao}
-            />
+      {/* ===================== RENDERIZAÇÃO BOLETO ==================== */}
+      {tipo === "BOLETO" && (
+        <div className="space-y-4">
+          {boleto ? (
+            <BoletoArea boleto={boleto} />
           ) : (
-            <p className="text-center">Carregando formulário de pagamento...</p>
+            <div className="flex flex-col items-center justify-center p-8 space-y-4">
+              <Loader2 className="h-8 w-8 animate-spin text-amber-600" />
+              <p className="text-sm text-muted-foreground animate-pulse">
+                Registrando e gerando boleto bancário...
+              </p>
+            </div>
           )}
-        </>
-      )}
-
-      {/* =============== BOLETO =============== */}
-      {/* Só renderiza o BoletoArea se 'tipo' for BOLETO E se 'boleto' existir */}
-      {tipo === "BOLETO" && boleto && <BoletoArea boleto={boleto} />}
-
-      {/* Se tipo for BOLETO mas o boleto ainda não carregou, mostra o loading */}
-      {tipo === "BOLETO" && !boleto && (
-        <p className="text-center animate-pulse">Gerando seu boleto...</p>
+        </div>
       )}
     </div>
   );
@@ -355,7 +311,13 @@ export function PagamentoContent() {
 
 export default function PagamentoPage() {
   return (
-    <Suspense fallback={<div className="p-6">Carregando...</div>}>
+    <Suspense
+      fallback={
+        <div className="p-8 text-center text-sm text-muted-foreground">
+          Carregando módulo de pagamento...
+        </div>
+      }
+    >
       <PagamentoContent />
     </Suspense>
   );

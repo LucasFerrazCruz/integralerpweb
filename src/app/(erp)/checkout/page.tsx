@@ -1,7 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -41,6 +41,7 @@ export default function CheckoutPage() {
     apelido: "Casa",
   });
   const [dadosPagador, setDadosPagador] = useState({
+    nomeCompleto: "",
     cpfCnpj: "",
     email: "",
   });
@@ -51,9 +52,6 @@ export default function CheckoutPage() {
   const [processandoPagamento, setProcessandoPagamento] = useState(false);
   const [pedidoCriado, setPedidoCriado] = useState<any>(null);
 
-  const [loading, setLoading] = useState(false);
-  const params = useSearchParams();
-
   const [opcoesFrete, setOpcoesFrete] = useState<OpcaoFrete[]>([]);
   const [carregandoFrete, setCarregandoFrete] = useState(false);
   const [freteSelecionado, setFreteSelecionado] = useState<OpcaoFrete | null>(
@@ -63,54 +61,53 @@ export default function CheckoutPage() {
   useEffect(() => {
     if (status === "unauthenticated") {
       toast.error("Você precisa estar logado para finalizar a compra.");
-      router.push("/login?callbackUrl=/checkout"); // Redireciona e volta após login
+      router.push("/login?callbackUrl=/checkout");
     }
   }, [status, router]);
 
-  const handleCartao = useCallback(
-    async (data: any) => {
-      if (!pedidoCriado) return;
+  // Handler do processamento assíncrono via Cartão de Crédito (Mercado Pago)
+  async function handleCartao(data: any) {
+    if (!pedidoCriado) return;
 
-      try {
-        setProcessandoPagamento(true);
+    try {
+      setProcessandoPagamento(true);
 
-        const payload = {
-          pedidoId: Number(pedidoCriado.id),
-          token: data.token,
-          paymentMethodId: data.paymentMethodId,
-          installments: Number(data.installments),
-          email:
-            data.cardholderEmail || dadosPagador.email || session?.user?.email,
-          cpf: dadosPagador.cpfCnpj,
-        };
+      const payload = {
+        pedidoId: Number(pedidoCriado.id),
+        token: data.token,
+        paymentMethodId: data.paymentMethodId,
+        installments: Number(data.installments),
+        email:
+          data.cardholderEmail || dadosPagador.email || session?.user?.email,
+        cpf: dadosPagador.cpfCnpj,
+      };
 
-        const res = await pagamentoService.pagarCartao(
-          Number(pedidoCriado.id),
-          payload,
-        );
+      const res = await pagamentoService.pagarCartao(
+        Number(pedidoCriado.id),
+        payload,
+      );
 
-        if (res.status === "approved") {
-          toast.success("Pagamento aprovado!");
-          router.push("/pedidos");
-        } else {
-          const erroTecnico = res.statusDetail || res.detalheStatus || "";
-          const mensagemAmigavel = traduzirStatusMercadoPago(erroTecnico);
+      if (res.status === "approved") {
+        toast.success("Pagamento aprovado!");
+        if (limparCarrinho) await limparCarrinho();
+        router.push("/pedidos");
+      } else {
+        const erroTecnico = res.statusDetail || res.detalheStatus || "";
+        const mensagemAmigavel = traduzirStatusMercadoPago(erroTecnico);
 
-          toast.error(`Pagamento recusado: ${mensagemAmigavel}`, {
-            duration: 6000, // Dá mais tempo para o usuário ler instruções como "ligar para o banco"
-          });
-        }
-      } catch (e) {
-        console.error(e);
-        toast.error("Erro ao pagar com cartão");
-      } finally {
-        setProcessandoPagamento(false);
+        toast.error(`Pagamento recusado: ${mensagemAmigavel}`, {
+          duration: 6000,
+        });
       }
-    },
-    [pedidoCriado, router, limparCarrinho],
-  );
+    } catch (e) {
+      console.error(e);
+      toast.error("Erro ao pagar com cartão");
+    } finally {
+      setProcessandoPagamento(false);
+    }
+  }
 
-  // Validações antes de submeter
+  // Validações antes de criar o pedido backend
   function validarDados() {
     if (!endereco.cep || !endereco.numero)
       return "CEP e Número são obrigatórios";
@@ -118,14 +115,16 @@ export default function CheckoutPage() {
     if (!formaPagamento) return "Selecione uma forma de pagamento";
     if (
       (formaPagamento === "PIX" || formaPagamento === "BOLETO") &&
-      (!dadosPagador.email || !dadosPagador.cpfCnpj)
+      (!dadosPagador.email ||
+        !dadosPagador.cpfCnpj ||
+        !dadosPagador.nomeCompleto)
     ) {
-      return "E-mail e CPF/CNPJ são obrigatórios para esta forma de pagamento";
+      return "Nome, E-mail e CPF/CNPJ são obrigatórios para esta forma de pagamento";
     }
     return null;
   }
 
-  // Função disparada pelo botão principal do resumo
+  // Registra o pedido e decide se exibe o Brick local ou empurra para a PagamentoPage
   async function iniciarFluxoFinalizacao() {
     const erroValidacao = validarDados();
     if (erroValidacao) {
@@ -133,38 +132,38 @@ export default function CheckoutPage() {
       return;
     }
 
+    // Atualização dinâmica do valor do frete
+    const freteValorCalculado = freteSelecionado?.valor || 0;
+
     try {
       setFinalizando(true);
 
-      // 1. Cria o pedido no banco primeiro
       const pedido = await pedidoService.criar({
         endereco: endereco,
         formaPagamento,
-        //valorFrete: freteSelecionado?.valor || 0,
-        valorFrete: 0,
+        valorFrete: freteValorCalculado,
         transportadora: `${freteSelecionado?.empresa} - ${freteSelecionado?.nomeServico}`,
       });
 
       setPedidoCriado(pedido);
 
-      // 2. Decide o destino com base na forma de pagamento
       if (formaPagamento === "CARTAO_CREDITO") {
-        // Se for cartão, a gente NÃO muda de página.
-        // O estado `pedidoCriado` vai destravar a renderização do CardBrick na mesma tela de forma fluida.
         toast.success(
           "Pedido registrado! Insira os dados do cartão para finalizar.",
         );
       } else {
-        // Se for PIX ou BOLETO, limpa carrinho e vai para a página de instrução de pagamento
+        // Se for PIX ou BOLETO, limpa carrinho de imediato e delega para a PagamentoPage
         if (limparCarrinho) await limparCarrinho();
 
-        const params = new URLSearchParams({
+        // 🚀 CORREÇÃO: Adicionado o 'nomePagador' na query string para o Pix/Boleto usar
+        const urlParams = new URLSearchParams({
           pedidoId: pedido.id.toString(),
           tipo: formaPagamento,
+          nomePagador: dadosPagador.nomeCompleto,
           email: dadosPagador.email,
           cpf: dadosPagador.cpfCnpj,
         });
-        router.push(`/checkout/pagamento?${params.toString()}`);
+        router.push(`/checkout/pagamento?${urlParams.toString()}`);
       }
     } catch (err) {
       toast.error("Erro ao registrar pedido.");
@@ -233,7 +232,7 @@ export default function CheckoutPage() {
     );
   }
 
-  if (status === "loading" || !carrinho) {
+  if (status === "loading") {
     return (
       <div className="flex flex-col items-center justify-center p-20 space-y-4">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -251,7 +250,7 @@ export default function CheckoutPage() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
         {/* COLUNA ESQUERDA: FORMULÁRIOS */}
         <div className="lg:col-span-2 space-y-6">
-          {/* 1. ENDEREÇO (Fica desativado após gerar o pedido para evitar mudanças) */}
+          {/* 1. ENDEREÇO */}
           <Card
             className={`shadow-sm ${pedidoCriado ? "opacity-60 pointer-events-none" : ""}`}
           >
@@ -409,7 +408,7 @@ export default function CheckoutPage() {
                 }
                 className={`space-y-3 ${pedidoCriado ? "opacity-60 pointer-events-none" : ""}`}
               >
-                {/* PIX */}
+                {/* Opcional: PIX */}
                 <div
                   className={`border rounded-xl transition-all ${formaPagamento === "PIX" ? "border-primary ring-2 ring-primary/20 bg-muted/20" : "hover:bg-muted/30"}`}
                 >
@@ -425,44 +424,65 @@ export default function CheckoutPage() {
                     </span>
                   </label>
                   {formaPagamento === "PIX" && (
-                    <div className="p-4 border-t bg-muted/10 grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="p-4 border-t bg-muted/10 grid grid-cols-1 gap-4">
                       <div className="space-y-1">
                         <Label className="text-xs">
-                          E-mail para o comprovante
+                          Nome Completo do Pagador
                         </Label>
                         <Input
-                          type="email"
-                          placeholder="nome@email.com"
-                          value={dadosPagador.email}
+                          type="text"
+                          disabled={!!pedidoCriado}
+                          placeholder="Nome igual ao do banco"
+                          value={dadosPagador.nomeCompleto}
                           onChange={(e) =>
                             setDadosPagador({
                               ...dadosPagador,
-                              email: e.target.value,
+                              nomeCompleto: e.target.value,
                             })
                           }
                         />
                       </div>
-                      <div className="space-y-1">
-                        <Label className="text-xs">
-                          CPF ou CNPJ do pagador
-                        </Label>
-                        <Input
-                          type="text"
-                          placeholder="000.000.000-00"
-                          value={dadosPagador.cpfCnpj}
-                          onChange={(e) =>
-                            setDadosPagador({
-                              ...dadosPagador,
-                              cpfCnpj: e.target.value.replace(/\D/g, ""),
-                            })
-                          }
-                        />
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="space-y-1">
+                          <Label className="text-xs">
+                            E-mail para o comprovante
+                          </Label>
+                          <Input
+                            type="email"
+                            disabled={!!pedidoCriado}
+                            placeholder="nome@email.com"
+                            value={dadosPagador.email}
+                            onChange={(e) =>
+                              setDadosPagador({
+                                ...dadosPagador,
+                                email: e.target.value,
+                              })
+                            }
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-xs">
+                            CPF ou CNPJ do pagador
+                          </Label>
+                          <Input
+                            type="text"
+                            disabled={!!pedidoCriado}
+                            placeholder="000.000.000-00"
+                            value={dadosPagador.cpfCnpj}
+                            onChange={(e) =>
+                              setDadosPagador({
+                                ...dadosPagador,
+                                cpfCnpj: e.target.value.replace(/\D/g, ""),
+                              })
+                            }
+                          />
+                        </div>
                       </div>
                     </div>
                   )}
                 </div>
 
-                {/* CARTÃO DE CRÉDITO */}
+                {/* Opcional: CARTÃO DE CRÉDITO */}
                 <div
                   className={`border rounded-xl transition-all ${formaPagamento === "CARTAO_CREDITO" ? "border-primary ring-2 ring-primary/20 bg-muted/20" : "hover:bg-muted/30"}`}
                 >
@@ -477,7 +497,7 @@ export default function CheckoutPage() {
                   </label>
                 </div>
 
-                {/* BOLETO */}
+                {/* Opcional: BOLETO */}
                 <div
                   className={`border rounded-xl transition-all ${formaPagamento === "BOLETO" ? "border-primary ring-2 ring-primary/20 bg-muted/20" : "hover:bg-muted/30"}`}
                 >
@@ -491,45 +511,66 @@ export default function CheckoutPage() {
                     </div>
                   </label>
                   {formaPagamento === "BOLETO" && (
-                    <div className="p-4 border-t bg-muted/10 grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="p-4 border-t bg-muted/10 grid grid-cols-1 gap-4">
                       <div className="space-y-1">
                         <Label className="text-xs">
-                          E-mail para envio do boleto
+                          Nome Completo do Titular
                         </Label>
                         <Input
-                          type="email"
-                          placeholder="nome@email.com"
-                          value={dadosPagador.email}
+                          type="text"
+                          disabled={!!pedidoCriado}
+                          placeholder="Nome completo impresso no boleto"
+                          value={dadosPagador.nomeCompleto}
                           onChange={(e) =>
                             setDadosPagador({
                               ...dadosPagador,
-                              email: e.target.value,
+                              nomeCompleto: e.target.value,
                             })
                           }
                         />
                       </div>
-                      <div className="space-y-1">
-                        <Label className="text-xs">
-                          CPF ou CNPJ do titular
-                        </Label>
-                        <Input
-                          type="text"
-                          placeholder="000.000.000-00"
-                          value={dadosPagador.cpfCnpj}
-                          onChange={(e) =>
-                            setDadosPagador({
-                              ...dadosPagador,
-                              cpfCnpj: e.target.value.replace(/\D/g, ""),
-                            })
-                          }
-                        />
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="space-y-1">
+                          <Label className="text-xs">
+                            E-mail para envio do boleto
+                          </Label>
+                          <Input
+                            type="email"
+                            disabled={!!pedidoCriado}
+                            placeholder="nome@email.com"
+                            value={dadosPagador.email}
+                            onChange={(e) =>
+                              setDadosPagador({
+                                ...dadosPagador,
+                                email: e.target.value,
+                              })
+                            }
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-xs">
+                            CPF ou CNPJ do titular
+                          </Label>
+                          <Input
+                            type="text"
+                            disabled={!!pedidoCriado}
+                            placeholder="000.000.000-00"
+                            value={dadosPagador.cpfCnpj}
+                            onChange={(e) =>
+                              setDadosPagador({
+                                ...dadosPagador,
+                                cpfCnpj: e.target.value.replace(/\D/g, ""),
+                              })
+                            }
+                          />
+                        </div>
                       </div>
                     </div>
                   )}
                 </div>
               </RadioGroup>
 
-              {/* AREA EXPANSÍVEL DO CARTÃO APÓS O PEDIDO GERADO */}
+              {/* AREA EXPANSÍVEL DO BRICK DE CARTÃO SÓ APÓS CRIAR O PEDIDO */}
               {formaPagamento === "CARTAO_CREDITO" && pedidoCriado && (
                 <div className="p-4 border border-purple-300 rounded-xl bg-white mt-4 animate-in slide-in-from-top-2 duration-200">
                   <h3 className="text-sm font-semibold text-purple-800 mb-3">
@@ -537,7 +578,7 @@ export default function CheckoutPage() {
                   </h3>
                   <CartaoBrick
                     key={`card-brick-${pedidoCriado.id}`}
-                    amount={valorTotalComFrete} // O valor total real calculado em tempo de execução
+                    amount={valorTotalComFrete}
                     onToken={handleCartao}
                   />
                   {processandoPagamento && (
@@ -575,11 +616,10 @@ export default function CheckoutPage() {
               </div>
 
               <div className="border-t pt-4 flex justify-between font-bold text-lg text-foreground">
-                <span>Total à pagar</span>
+                <span>Total a pagar</span>
                 <span>R$ {valorTotalComFrete.toFixed(2)}</span>
               </div>
 
-              {/* Só exibe o botão principal se o pedido de cartão ainda não tiver sido criado */}
               {!pedidoCriado && (
                 <Button
                   size="lg"
@@ -606,8 +646,8 @@ export default function CheckoutPage() {
               )}
 
               {pedidoCriado && formaPagamento === "CARTAO_CREDITO" && (
-                <p className="text-center text-xs text-muted-foreground mt-2 font-medium text-purple-600">
-                  Preencha o formulário acima para concluir.
+                <p className="text-center text-xs text-muted-foreground mt-2 font-medium text-purple-600 animate-pulse">
+                  Preencha o formulário acima para concluir o pagamento.
                 </p>
               )}
             </CardContent>

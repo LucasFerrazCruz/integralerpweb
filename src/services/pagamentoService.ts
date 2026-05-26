@@ -8,7 +8,11 @@ export const pagamentoService = {
 
   async gerarPix(
     pedidoId: number,
-    dadosPagador?: { emailPagador: string; cpfPagador: string },
+    dadosPagador?: {
+      nomePagador: string;
+      emailPagador: string;
+      cpfPagador: string;
+    },
   ) {
     const { data } = await api.post(
       `/api/pagamentos/${pedidoId}/pix`,
