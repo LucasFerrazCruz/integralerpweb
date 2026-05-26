@@ -54,9 +54,6 @@ export default function CheckoutPage() {
   const [loading, setLoading] = useState(false);
   const params = useSearchParams();
 
-  const [totalPedido, setTotalPedido] = useState(0);
-  const pedidoId = params.get("pedidoId");
-
   const [opcoesFrete, setOpcoesFrete] = useState<OpcaoFrete[]>([]);
   const [carregandoFrete, setCarregandoFrete] = useState(false);
   const [freteSelecionado, setFreteSelecionado] = useState<OpcaoFrete | null>(
@@ -70,21 +67,6 @@ export default function CheckoutPage() {
     }
   }, [status, router]);
 
-  if (status === "unauthenticated") return null;
-  if (!carrinho)
-    return <p className="p-8">Erro ao carregar dados do carrinho.</p>;
-
-  if (carrinho.itens.length === 0) {
-    return (
-      <div className="p-8 text-center">
-        <h1 className="text-2xl font-bold">Carrinho vazio</h1>
-        <p className="text-muted-foreground">
-          Adicione produtos antes de continuar
-        </p>
-      </div>
-    );
-  }
-
   const handleCartao = useCallback(
     async (data: any) => {
       if (!pedidoCriado) return;
@@ -96,8 +78,10 @@ export default function CheckoutPage() {
           pedidoId: Number(pedidoCriado.id),
           token: data.token,
           paymentMethodId: data.paymentMethodId,
-          installments: data.installments,
-          email: data.cardholderEmail,
+          installments: Number(data.installments),
+          email:
+            data.cardholderEmail || dadosPagador.email || session?.user?.email,
+          cpf: dadosPagador.cpfCnpj,
         };
 
         const res = await pagamentoService.pagarCartao(
@@ -156,7 +140,8 @@ export default function CheckoutPage() {
       const pedido = await pedidoService.criar({
         endereco: endereco,
         formaPagamento,
-        valorFrete: freteSelecionado?.valor || 0,
+        //valorFrete: freteSelecionado?.valor || 0,
+        valorFrete: 0,
         transportadora: `${freteSelecionado?.empresa} - ${freteSelecionado?.nomeServico}`,
       });
 
@@ -232,6 +217,21 @@ export default function CheckoutPage() {
       }
     }
   };
+
+  if (status === "unauthenticated") return null;
+  if (!carrinho)
+    return <p className="p-8">Erro ao carregar dados do carrinho.</p>;
+
+  if (carrinho.itens.length === 0) {
+    return (
+      <div className="p-8 text-center">
+        <h1 className="text-2xl font-bold">Carrinho vazio</h1>
+        <p className="text-muted-foreground">
+          Adicione produtos antes de continuar
+        </p>
+      </div>
+    );
+  }
 
   if (status === "loading" || !carrinho) {
     return (
