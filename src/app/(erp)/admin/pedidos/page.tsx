@@ -41,8 +41,3 @@ export default function AdminPedidosPage() {
     </div>
   );
 }
-// "use client";
-
-// export default function AdminPedidosPage() {
-//   return <div>Página em construção...</div>;
-// }
