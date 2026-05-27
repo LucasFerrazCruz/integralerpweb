@@ -6,7 +6,8 @@ import { Pedido } from "@/types/Pedido";
 import { Card, CardContent } from "@/components/ui/card";
 import { useRouter } from "next/navigation";
 import { statusPedidoMap } from "@/utils/pedido";
-import { Badge, Loader2, ShoppingBag } from "lucide-react";
+import { Loader2, ShoppingBag } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 
 export default function PedidosPage() {
   const [pedidos, setPedidos] = useState<Pedido[]>([]);
