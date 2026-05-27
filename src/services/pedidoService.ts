@@ -36,4 +36,9 @@ export const pedidoService = {
     const { data } = await api.get("/api/admin/pedidos");
     return data;
   },
+
+  async cancelar(id: number) {
+    const { data } = await api.put(`/api/pedidos/${id}/cancelar`);
+    return data;
+  },
 };
